@@ -1,0 +1,8 @@
+# 统一换行符，避免 Windows 上 commit 出来一堆 CRLF 差异
+* text=auto eol=lf
+
+# 这是一个文档型仓库 —— 别让 GitHub 的 Languages 显示成 "HTML 100%"
+# （工具会自动统计最大文件的语言，而这个包里最大的文件是那张机制图）
+*.md linguist-documentation
+templates/*.html linguist-documentation
+docs/*.png linguist-documentation
