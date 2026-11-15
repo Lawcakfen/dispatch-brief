@@ -1,0 +1,37 @@
+# 运行时产物（不要让它们进仓库）
+*.pyc
+__pycache__/
+*.pyo
+*.log
+*.tmp
+*.bak
+*.bak.*
+*.orig
+*.swp
+
+# 状态文件（每台机器不同）
+state.json
+*_state.json
+*.lock
+heartbeat.txt
+
+# 生成的产物（可重建，不进版本控制）
+board.html
+index.generated.html
+
+# 本地配置
+.env
+.env.*
+config.local.*
+*.local.md
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 只保留 docs/ 里的图，别把随手截图带进来
+screenshot-*.png
+tmp-*.png
