@@ -206,7 +206,7 @@ WB 无 CLI、无 HTTP API → 每次迭代 = 他复制 + 等待 + 回来告诉�
 
 ### 0.3 / 0.4 ★★★★★ 派单之后怎么盯 + 自动验收
 **→ 详见 `references/automation.md`**　三句话心跳、队列必须分两段、实现时踩的 5 个 bug、
-★ 「执行方自己把队列打了勾」这个最大的敌人、★ 「memory 里写 X」是匹配器的燃料、四层防护。
+★ 「执行方自己把队列打了勾」这个最大的敌人、★ 「memory 里写 X」是匹配器的燃料、★ **动手前先声明在做什么**（补语义缺口）、四层防护。
 
 **→ judge 的实现细节（prompt 全文、锁、接法）见 `references/auto-acceptance-judge.md`**
 
@@ -296,7 +296,7 @@ B 视觉产物（海报·长图）／C 改造已有代码（`references/refactor
 | `references/refactor-existing.md` | 改造已有代码的完整流程（586 行，最长的一份） |
 | `references/flow-diagram.md` | 把这套机制画成一张图的做法 |
 | `references/publishing-status.md` | 发布进度与「该不该发」的判断依据（内部账本） |
-| `templates/instruction.md` | 指令模板：必带的两句话、八节骨架、五种实测有效句式 |
+| `templates/instruction.md` | 指令模板：**必带的三句话**（只写memory / 冲突时怎么办 / **动手前先声明**）、八节骨架、五种有效句式 |
 | `templates/mechanism-diagram.html` | 机制可视化单文件 HTML 骨架（已脱敏，占位符可替换） |
 | `templates/gift-webpage-brief.md` | 单文件礼物页的指令骨架（产物类型 A） |
 
