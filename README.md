@@ -1,7 +1,7 @@
 # super-agent-brief-writing
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![Files: 15](https://img.shields.io/badge/Files-15-blue.svg)
+![Files: 18](https://img.shields.io/badge/Files-18-blue.svg)
 ![API: not required](https://img.shields.io/badge/API-not%20required-lightgrey.svg)
 
 **这是一个 Agent skill 包**，记录「无 API 环境下，主 Agent 怎么管住执行 Agent」这套分工方法。
