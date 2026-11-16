@@ -205,8 +205,8 @@ tr:last-child td{border-bottom:none}
   <div class="howto">
     <b>怎么用这个模板</b>
 
-    <p><b>前提</b>：这个文件假设你的执行 Agent <b>没有 API、只能人工粘贴</b>。
-       如果你的执行方能直接调 API，这套复杂度里有一大半用不上 —— 先读 SKILL.md 的适用范围。</p>
+    <p><b>前提</b>：这个文件假设你的执行方<b>只能人工对接</b>——你不能用程序给它派活，它也不会用程序交回结果。（这跟「它能不能调用工具」无关，它天天在调。）
+       如果你的执行方<b>能被程序调用</b>（CLI / HTTP API / 双向 MCP），这套复杂度里有一大半用不上 —— 先读 SKILL.md 的适用范围。</p>
 
     <p><b class="step">第 1 步</b><b>找出要换的地方</b><br>
        用 VS Code 或记事本打开这个 <code>.html</code> 文件，按 <kbd>Ctrl+F</kbd> 搜 <code>&lt;</code>（小于号）。
@@ -337,7 +337,7 @@ tr:last-child td{border-bottom:none}
       <div class="body">
         <h4>指令入队 → 用户复制</h4>
         <p>我把指令写进项目的 <code>&lt;队列文件名&gt;.md</code> 的「⏳ 待发」段。你把它整段复制给 执行 Agent 窗口。</p>
-        <p><b>这是唯一的人肉环节 —— 执行 Agent 没有 API，这个动作省不掉。</b></p>
+        <p><b>这是唯一的人肉环节 —— 执行方不能被程序调用，这个动作省不掉。</b></p>
         <div class="out">&lt;库根&gt;\Outputs\projects\&lt;项目&gt;\&lt;队列文件名&gt;.md</div>
       </div>
     </div>
@@ -603,7 +603,7 @@ Outputs\drafts\内容\2026-11-18-&lt;文章标题&gt;.md   <span class="c">← �
     </p>
     <p style="margin:0;font-size:13.5px;color:var(--ink3);line-height:1.8">
       ★ 唯一还需要你的两个动作：<b>把指令复制给 执行 Agent</b>，和<b>拍板</b>。<br>
-      前者因为 执行 Agent 没有 API，省不掉；后者因为不该被省掉。
+      前者因为执行方不能被程序调用，省不掉；后者因为不该被省掉。
     </p>
   </div>
 </section>
