@@ -259,7 +259,7 @@ tr:last-child td{border-bottom:none}
     </p>
 
     <p class="note"><b>另外两件要知道的：</b><br>
-       · 「五种输出」那一节的文案是<b>真实推送原文改的</b>，可直接对照你实现的输出看<br>
+       · 「六种输出」那一节的文案是<b>真实推送原文改的</b>，可直接对照你实现的输出看<br>
        · 「三个坑」写的是<b>代价</b>，不是「已修复」—— 保留这个写法，否则下次踩了不认得</p>
   </div>
 </header>
@@ -326,7 +326,7 @@ tr:last-child td{border-bottom:none}
       <div class="body">
         <h4>主 Agent 出指令（八节骨架）</h4>
         <p>动手前 / 改动范围 / 具体改法 / 视觉 / 交互 / 验收清单 / 出错怎么办 / 回报三件事。</p>
-        <p>必须带两句话：<b>① 只写 memory，不许动 queue ② 冲突时按带理由更具体那条执行</b>。</p>
+        <p>必须带三句话：<b>① 只写 memory，不许动 queue ② 冲突时按带理由更具体那条执行 ③ 动手前先写一行「我要做：X」</b>。</p>
         <div class="out">Outputs/drafts/WB指令-xxx（日期）.md</div>
       </div>
     </div>
@@ -357,9 +357,9 @@ tr:last-child td{border-bottom:none}
     <div class="step cron">
       <div class="no">CRON ●</div>
       <div class="body">
-        <h4>每 15 分钟扫一次（8:00–22:00）</h4>
-        <p><code>job &lt;job-id-15min&gt;</code> · <code>*/15 8-22 * * *</code> · 纯脚本、无 agent、<b>token = 0</b></p>
-        <p>扫三样：每个项目 <code>&lt;队列文件名&gt;.md</code> 的待发数、<code>&lt;工作日志目录&gt;</code> 的新增行、上次的待发基线。</p>
+        <h4>每 5 分钟扫一次（8:00–22:00）</h4>
+        <p><code>job &lt;job-id-15min&gt;</code> · <code>*/5 8-22 * * *</code> · 纯脚本、无 agent、<b>token = 0</b></p>
+        <p>扫四样：每个项目 <code>&lt;队列文件名&gt;.md</code> 的待发数、<code>&lt;工作日志目录&gt;</code> 的新增行、上次的待发基线、<b>各项目产物文件的 mtime</b>。</p>
         <p>没有待发 → 直接退出，一个字都不说。整个扫描约 0.5 秒。</p>
       </div>
     </div>
@@ -368,7 +368,7 @@ tr:last-child td{border-bottom:none}
     <div class="step" style="border-bottom:none">
       <div class="no">STEP 5</div>
       <div class="body">
-        <h4>五种结果，只有三种会说话</h4>
+        <h4>六种结果，只有四种会说话</h4>
         <p>见下一节。说的时候才起一次判断（约 104–190 秒，15–20k token ≈ ¥0.1）。</p>
       </div>
     </div>
@@ -376,9 +376,9 @@ tr:last-child td{border-bottom:none}
   </div>
 </section>
 
-<!-- ============ 三、五种输出 ============ -->
+<!-- ============ 三、六种输出 ============ -->
 <section>
-  <h2><span class="n">03</span>cron 的五种输出</h2>
+  <h2><span class="n">03</span>cron 的六种输出</h2>
   <div class="branch">
 
     <div class="row">
@@ -426,7 +426,20 @@ tr:last-child td{border-bottom:none}
       <div class="v">
         待发条目消失，但不是 cron 自己打的勾 —— 通常意味着 执行 Agent 抢着打勾了。
         <span class="say">⚠ &lt;项目 A&gt;　队列被外部改了：「&lt;某一批交付&gt;」从待发消失
-　　★ 这轮没触发验收判断。改回 `- [ ]` 放回待发，15 分钟内会自动判断</span>
+　　★ 这轮没触发验收判断。改回 `- [ ]` 放回待发，5 分钟内会自动判断</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="k s5">⑥ 产物变了但没记录 ★</div>
+      <div class="v">
+        文件改了，但工作日志里没有对应内容 —— 通常是在执行 Agent 窗口里<b>直接对话改的</b>。
+        <span class="say">⚠ &lt;项目 A&gt;　产物变了，但 memory 没记录
+　　build_board.py　10:36　90.7KB → 95.6KB（+4.9KB）
+　　—— 是不是在执行 Agent 里直接对话改的？如果是，
+　　　 下次让它顺手写一句 memory，我才知道改了什么</span>
+        <span style="display:block;margin-top:8px;color:var(--ink3);font-size:12.5px">
+        ★ 它治「失明」不治「失察」：知道哪个文件变了，不知道改成了什么样。</span>
       </div>
     </div>
 
@@ -485,7 +498,7 @@ tr:last-child td{border-bottom:none}
 
 <span class="c">主 Agent 侧（不在 Vault 里）：</span>
 HERMES_HOME\
-├── scripts\wb_watch.py       <span class="c">← 15 分钟扫描</span>
+├── scripts\wb_watch.py       <span class="c">← 5 分钟扫描</span>
 ├── scripts\judge.py          <span class="c">← 验收判断</span>
 ├── scripts\queue.py          <span class="c">← 解析 + 匹配 + 打勾</span>
 ├── scripts\project_watch.py  <span class="c">← 06:20 全量汇报</span>
@@ -542,7 +555,7 @@ Outputs\drafts\内容\2026-11-18-&lt;文章标题&gt;.md   <span class="c">← �
   <h2><span class="n">07</span>成本</h2>
   <table>
     <tr><th style="width:230px">动作</th><th style="width:120px">token</th><th>频率</th></tr>
-    <tr><td>15 分钟扫描（无事件）</td><td class="num">0</td><td>每 15 分钟 × 14 小时 ≈ 56 次/天，每次 0.5 秒</td></tr>
+    <tr><td>5 分钟扫描（无事件）</td><td class="num">0</td><td>每 5 分钟 × 14 小时 ≈ 168 次/天，每次 0.5 秒</td></tr>
     <tr><td>一次验收判断</td><td class="num">15–20k</td><td>只在实际完成时跑一次，约 <b>¥0.1</b></td></tr>
     <tr><td>06:20 全量项目汇报</td><td class="num">11k</td><td>每天一次，约 ¥0.05</td></tr>
     <tr><td colspan="3" style="color:var(--ink3);font-size:13px">按一天 3–5 次交付算：约 <b>¥0.4/天</b> ≈ <b>¥12/月</b>。钱只花在真判断上，静默不烧。</td></tr>
@@ -600,7 +613,7 @@ Outputs\drafts\内容\2026-11-18-&lt;文章标题&gt;.md   <span class="c">← �
   指令模板 <code>Outputs/drafts/_WB指令模板.md</code><br>
   队列 <code>Outputs/projects/&lt;项目&gt;/&lt;队列文件名&gt;.md</code>　·　执行 Agent 报告 <code>&lt;项目&gt;/&lt;工作日志目录&gt;/&lt;日期&gt;.md</code><br>
   扫描 <code>hermes/scripts/wb_watch.py</code>　·　判断 <code>hermes/scripts/judge.py</code>　·　匹配打勾 <code>hermes/scripts/queue.py</code><br>
-  cron <code>&lt;job-id-15min&gt;</code>（15 分钟）　·　<code>&lt;job-id-daily&gt;</code>（每天 06:20）
+  cron <code>&lt;job-id-15min&gt;</code>（5 分钟）　·　<code>&lt;job-id-daily&gt;</code>（每天 06:20）
 </div>
 
 </div>
