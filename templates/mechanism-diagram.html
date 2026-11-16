@@ -150,6 +150,45 @@ tr:last-child td{border-bottom:none}
 }
 .foot b{color:var(--ink2)}
 
+/* ---------- 怎么用这个模板 ---------- */
+.howto{
+  margin:18px 0 0;padding:16px 18px 14px;background:#fbfaf8;
+  border:1px solid var(--line);border-left:3px solid var(--ink3);
+  font-size:13px;color:var(--ink2);line-height:1.75;
+}
+.howto>b:first-child{
+  display:block;font-size:14px;color:var(--ink);margin-bottom:10px;
+  padding-bottom:8px;border-bottom:1px solid var(--line);
+}
+.howto p{margin:0 0 10px}
+.howto p:last-child{margin-bottom:0}
+.howto b.step{
+  display:inline-block;color:var(--ink);font-weight:700;
+  background:#efece7;padding:1px 8px;margin-right:6px;font-size:12px;
+}
+.howto code{
+  background:#f0eeea;padding:1px 5px;font-family:var(--mono);
+  font-size:12px;border-radius:2px;
+}
+.howto kbd{
+  background:#fff;border:1px solid #ccc7bf;border-bottom-width:2px;
+  padding:0 5px;font-family:var(--mono);font-size:11px;border-radius:3px;
+}
+.howto table{
+  width:100%;border-collapse:collapse;margin:8px 0 12px;
+  font-size:12.5px;background:#fff;
+}
+.howto th,.howto td{
+  border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top;
+}
+.howto th{background:#f2efea;font-weight:600;color:var(--ink2);font-size:12px}
+.howto td.grp{background:#faf8f5;font-weight:600;color:var(--ink);white-space:nowrap}
+.howto .muted{color:var(--ink3);font-weight:400;font-size:11.5px}
+.howto .note{
+  margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);
+  font-size:12.5px;color:var(--ink3);
+}
+
 @media print{
   body{padding:0}
   section{page-break-inside:avoid}
@@ -163,13 +202,65 @@ tr:last-child td{border-bottom:none}
   <h1>主 Agent + 执行 Agent · 协作机制</h1>
   <p class="sub">模板 · 把 &lt;用户名&gt; / 主 Agent / 执行 Agent 换成你自己的名字与工具</p>
 
-  <div style="margin-top:18px;padding:14px 16px;background:#fbfaf8;border:1px solid #e2e0dc;border-left:3px solid #767676;font-size:13px;color:#4a4a4a;line-height:1.8">
-    <b>怎么用这个模板</b><br>
-    ① 全文搜 <code>&lt;</code> 开头的占位符（<code>&lt;库根&gt;</code>／<code>&lt;项目 A&gt;</code>／<code>&lt;job-id-15min&gt;</code> 等），换成你自己的路径和名字<br>
-    ② 「执行 Agent」当前指一个<b>没有 API、只能人工粘贴</b>的桌面型 Agent（如 WorkBuddy）—— 
-       如果你的执行方能调 API，这套复杂度里有一大半用不上，先读 SKILL.md 的适用范围<br>
-    ③ 五种输出那节的文案是真实推送原文改的，可直接对照你实现的输出<br>
-    ④ 三个坑写的是<b>代价</b>不是「已修复」—— 保留这个写法，否则下次踩时不认得
+  <div class="howto">
+    <b>怎么用这个模板</b>
+
+    <p><b>前提</b>：这个文件假设你的执行 Agent <b>没有 API、只能人工粘贴</b>。
+       如果你的执行方能直接调 API，这套复杂度里有一大半用不上 —— 先读 SKILL.md 的适用范围。</p>
+
+    <p><b class="step">第 1 步</b><b>找出要换的地方</b><br>
+       用 VS Code 或记事本打开这个 <code>.html</code> 文件，按 <kbd>Ctrl+F</kbd> 搜 <code>&lt;</code>（小于号）。
+       全文一共 <b>40 处</b>，分四类，换法不一样：</p>
+
+    <table>
+      <tr>
+        <th style="width:15%">类别</th>
+        <th style="width:34%">占位符（括号里是出现次数）</th>
+        <th style="width:27%">换成</th>
+        <th style="width:24%">怎么换</th>
+      </tr>
+      <tr>
+        <td class="grp">名字<br><span class="muted">同类只有一个值</span></td>
+        <td><code>&lt;队列文件名&gt;</code> 7　<code>&lt;工作日志目录&gt;</code> 4<br>
+            <code>&lt;库根&gt;</code> 3　<code>&lt;用户名&gt;</code> 1</td>
+        <td>你项目里实际的那个名字 / 路径</td>
+        <td><kbd>Ctrl+H</kbd> 全部替换<br>一次改完全文</td>
+      </tr>
+      <tr>
+        <td class="grp">任务 ID<br><span class="muted">同类只有一个值</span></td>
+        <td><code>&lt;job-id-15min&gt;</code> 3　<code>&lt;job-id-daily&gt;</code> 1</td>
+        <td>你两个 cron 任务的实际 ID</td>
+        <td><kbd>Ctrl+H</kbd> 全部替换</td>
+      </tr>
+      <tr>
+        <td class="grp">项目名<br><span class="muted">每个不一样</span></td>
+        <td><code>&lt;项目 A&gt;</code> 5　<code>&lt;项目 B&gt;</code> 2　<code>&lt;项目&gt;</code> 4<br>
+            <code>&lt;项目 C&gt;</code>–<code>&lt;项目 G&gt;</code> 各 1</td>
+        <td>你的真实项目名</td>
+        <td><b>不能全部替换</b><br>逐个改，每个换不同名字</td>
+      </tr>
+      <tr>
+        <td class="grp">内容<br><span class="muted">按你自己情况</span></td>
+        <td><code>&lt;某一批交付&gt;</code> 2　<code>&lt;文章标题&gt;</code> 1<br>
+            <code>&lt;客户&gt;</code> 1　<code>&lt;日期&gt;</code> 1</td>
+        <td>你自己的事例</td>
+        <td>可直接写你的<br>但尖括号要删掉</td>
+      </tr>
+    </table>
+
+    <p class="note"><b>★ 换的顺序有讲究</b>：先换<b>长的</b>（<code>&lt;项目 A&gt;</code>），再换<b>短的</b>（<code>&lt;项目&gt;</code>）。
+       反过来会把 <code>&lt;项目 A&gt;</code> 改坏成 <code>&lt;你的项目 A&gt;</code>。</p>
+
+    <p><b class="step">第 2 步</b><b>验一遍</b><br>
+       再搜一次 <code>&lt;</code> —— <b>剩 0 处</b>才算换完。然后双击打开，看有没有下面这两种情况：</p>
+    <p style="margin-left:14px;color:var(--ink3)">
+       · 本该显示项目名的地方，是空的 → 说明尖括号被浏览器吃掉了，回源码补 <code>&amp;lt;</code> 转义<br>
+       · 本该是示例文字的地方，变成了命令 → 说明那个位置不是占位符，改回去
+    </p>
+
+    <p class="note"><b>另外两件要知道的：</b><br>
+       · 「五种输出」那一节的文案是<b>真实推送原文改的</b>，可直接对照你实现的输出看<br>
+       · 「三个坑」写的是<b>代价</b>，不是「已修复」—— 保留这个写法，否则下次踩了不认得</p>
   </div>
 </header>
 
@@ -247,7 +338,7 @@ tr:last-child td{border-bottom:none}
         <h4>指令入队 → 用户复制</h4>
         <p>我把指令写进项目的 <code>&lt;队列文件名&gt;.md</code> 的「⏳ 待发」段。你把它整段复制给 执行 Agent 窗口。</p>
         <p><b>这是唯一的人肉环节 —— 执行 Agent 没有 API，这个动作省不掉。</b></p>
-        <div class="out"><库根>\Outputs\projects\&lt;项目&gt;\&lt;队列文件名&gt;.md</div>
+        <div class="out">&lt;库根&gt;\Outputs\projects\&lt;项目&gt;\&lt;队列文件名&gt;.md</div>
       </div>
     </div>
     <div class="arrow">↓</div>
@@ -258,7 +349,7 @@ tr:last-child td{border-bottom:none}
         <h4>执行 Agent 执行，只写 memory</h4>
         <p>它改代码、跑脚本、生成产物。做完把「做了什么 / 卡在哪 / 等谁确认」写进当天的 memory。</p>
         <p><b>★ 不许改 &lt;队列文件名&gt;.md</b> —— 队列归 主 Agent 管，打勾由 cron 负责。</p>
-        <div class="out">&lt;项目&gt;\<工作日志目录>\2026-11-15.md</div>
+        <div class="out">&lt;项目&gt;\&lt;工作日志目录&gt;\2026-11-15.md</div>
       </div>
     </div>
     <div class="arrow">↓</div>
@@ -268,7 +359,7 @@ tr:last-child td{border-bottom:none}
       <div class="body">
         <h4>每 15 分钟扫一次（8:00–22:00）</h4>
         <p><code>job &lt;job-id-15min&gt;</code> · <code>*/15 8-22 * * *</code> · 纯脚本、无 agent、<b>token = 0</b></p>
-        <p>扫三样：每个项目 <code>&lt;队列文件名&gt;.md</code> 的待发数、<code><工作日志目录></code> 的新增行、上次的待发基线。</p>
+        <p>扫三样：每个项目 <code>&lt;队列文件名&gt;.md</code> 的待发数、<code>&lt;工作日志目录&gt;</code> 的新增行、上次的待发基线。</p>
         <p>没有待发 → 直接退出，一个字都不说。整个扫描约 0.5 秒。</p>
       </div>
     </div>
@@ -302,7 +393,7 @@ tr:last-child td{border-bottom:none}
       <div class="k s2">② 它开始动了</div>
       <div class="v">
         memory 出现新内容，但还没写完成信号。每个派单周期只报一次。
-        <span class="say">▶ <项目 A>　执行 Agent 动了（队列还剩 1 条）
+        <span class="say">▶ &lt;项目 A&gt;　执行 Agent 动了（队列还剩 1 条）
 　　开始改：先把三个按钮的 color 改成 #C4362F
 　　（这是开场信号，还看不出做完没有）</span>
       </div>
@@ -312,8 +403,8 @@ tr:last-child td{border-bottom:none}
       <div class="k s3">③ 它做完了 ★</div>
       <div class="v">
         队列某条被打勾（<code>- [ ]</code> → <code>- [x]</code>），然后<b>起一次独立判断</b>。
-        <span class="say">✅ 完成了：<项目 A>
-　　<某一批交付>
+        <span class="say">✅ 完成了：&lt;项目 A&gt;
+　　&lt;某一批交付&gt;
 
 【看起来完成了什么】
 【你该自己核这几点】
@@ -325,7 +416,7 @@ tr:last-child td{border-bottom:none}
       <div class="k s4">④ 它卡住了</div>
       <div class="v">
         派单满 4 小时，memory 一个字没动。只报一次。
-        <span class="say">⚠ <项目 B>　派单 4.0 小时，memory 无新增内容
+        <span class="say">⚠ &lt;项目 B&gt;　派单 4.0 小时，memory 无新增内容
 　　队列还有 1 条待发 —— 检查 执行 Agent 是否收到指令</span>
       </div>
     </div>
@@ -334,7 +425,7 @@ tr:last-child td{border-bottom:none}
       <div class="k s5">⑤ 队列被外部改了</div>
       <div class="v">
         待发条目消失，但不是 cron 自己打的勾 —— 通常意味着 执行 Agent 抢着打勾了。
-        <span class="say">⚠ <项目 A>　队列被外部改了：「<某一批交付>」从待发消失
+        <span class="say">⚠ &lt;项目 A&gt;　队列被外部改了：「&lt;某一批交付&gt;」从待发消失
 　　★ 这轮没触发验收判断。改回 `- [ ]` 放回待发，15 分钟内会自动判断</span>
       </div>
     </div>
@@ -376,20 +467,20 @@ tr:last-child td{border-bottom:none}
 <!-- ============ 五、数据在哪 ============ -->
 <section>
   <h2><span class="n">05</span>数据在哪 —— 只有一份</h2>
-  <div class="tree"><库根>\Outputs\projects\<span class="c">（项目区 = 工作台，唯一的行动源）</span>
+  <div class="tree">&lt;库根&gt;\Outputs\projects\<span class="c">（项目区 = 工作台，唯一的行动源）</span>
 │
-├── <项目 A>\
+├── &lt;项目 A&gt;\
 │   ├── <span class="hi">&lt;队列文件名&gt;.md</span>                  <span class="c">← 队列：⏳ 待发 / ✅ 已完成 / ⚠ 卡在外部</span>
-│   ├── <工作日志目录>\<span class="r">2026-11-15.md</span> <span class="c">← 执行 Agent 唯一有写权限的文件</span>
+│   ├── &lt;工作日志目录&gt;\<span class="r">2026-11-15.md</span> <span class="c">← 执行 Agent 唯一有写权限的文件</span>
 │   ├── build_board.py              <span class="c">← 生成脚本</span>
 │   └── board.html                  <span class="c">← 产物，1.29MB 单文件</span>
 │
-├── <项目 B>\        <span class="c">← 暂停，留作案例</span>
-├── <项目 C>\         <span class="c">← 暂停</span>
-├── <项目 D>\     <span class="c">← 下一步：加冰箱贴 SKU</span>
-├── <项目 E>\     <span class="c">← 归档，并入内容看板</span>
-├── <项目 F>\
-├── <项目 G>\     <span class="c">← ✅ 已收尾</span>
+├── &lt;项目 B&gt;\        <span class="c">← 暂停，留作案例</span>
+├── &lt;项目 C&gt;\         <span class="c">← 暂停</span>
+├── &lt;项目 D&gt;\     <span class="c">← 下一步：加冰箱贴 SKU</span>
+├── &lt;项目 E&gt;\     <span class="c">← 归档，并入内容看板</span>
+├── &lt;项目 F&gt;\
+├── &lt;项目 G&gt;\     <span class="c">← ✅ 已收尾</span>
 └── _看板\index.html              <span class="c">← 项目进度看板</span>
 
 <span class="c">主 Agent 侧（不在 Vault 里）：</span>
@@ -401,7 +492,7 @@ HERMES_HOME\
 └── cache\wb_watch_state.json <span class="c">← 基线：memory hash + 待发列表</span>
 
 <span class="c">内容侧（看板只读，绝不写）：</span>
-Outputs\drafts\内容\2026-11-18-<文章标题>.md   <span class="c">← 一篇文章一个 md，状态在 frontmatter</span></div>
+Outputs\drafts\内容\2026-11-18-&lt;文章标题&gt;.md   <span class="c">← 一篇文章一个 md，状态在 frontmatter</span></div>
 </section>
 
 <!-- ============ 六、判据 ============ -->
@@ -478,7 +569,7 @@ Outputs\drafts\内容\2026-11-18-<文章标题>.md   <span class="c">← 一篇�
 
     <div class="pit">
       <h4>③ 判据太松，会把无关的完成当成真完成</h4>
-      <p>早期阈值取 2，「改圆角」和一件无关任务也能对上 —— 一次误判了<客户>两条，队列变 0 条。</p>
+      <p>早期阈值取 2，「改圆角」和一件无关任务也能对上 —— 一次误判了&lt;客户&gt;两条，队列变 0 条。</p>
       <p class="fix"><b>修：</b>阈值取实测值 4。<b>代价是漏</b> —— 而漏的成本是「你多问一句」，错的成本是「你以为做完了其实没做」。两者不等价。</p>
     </div>
 
@@ -507,7 +598,7 @@ Outputs\drafts\内容\2026-11-18-<文章标题>.md   <span class="c">← 一篇�
 <div class="foot">
   <b>相关文件</b><br>
   指令模板 <code>Outputs/drafts/_WB指令模板.md</code><br>
-  队列 <code>Outputs/projects/&lt;项目&gt;/&lt;队列文件名&gt;.md</code>　·　执行 Agent 报告 <code>&lt;项目&gt;/<工作日志目录>/&lt;日期&gt;.md</code><br>
+  队列 <code>Outputs/projects/&lt;项目&gt;/&lt;队列文件名&gt;.md</code>　·　执行 Agent 报告 <code>&lt;项目&gt;/&lt;工作日志目录&gt;/&lt;日期&gt;.md</code><br>
   扫描 <code>hermes/scripts/wb_watch.py</code>　·　判断 <code>hermes/scripts/judge.py</code>　·　匹配打勾 <code>hermes/scripts/queue.py</code><br>
   cron <code>&lt;job-id-15min&gt;</code>（15 分钟）　·　<code>&lt;job-id-daily&gt;</code>（每天 06:20）
 </div>
