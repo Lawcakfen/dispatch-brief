@@ -7,7 +7,7 @@
 **这是一个 Agent skill 包**，记录「无 API 环境下，主 Agent 怎么管住执行 Agent」这套分工方法。
 执行方只能人工粘贴 —— 它解决的就是那种「每一步都得你亲自盯」的窘境。
 
-**读完大概 4 分钟。如果你只想知道结论：把验收从脑子里搬到一个每 15 分钟跑一次的脚本里，
+**读完大概 4 分钟。如果你只想知道结论：把验收从脑子里搬到一个每 5 分钟跑一次的脚本里，
 并且接受「执行方会自己把队列打了勾」这个坑。**
 
 **目录**　[30 秒判断](#30-秒判断你该不该往下读) ·
@@ -93,6 +93,41 @@ cp -r super-agent-brief-writing ~/.hermes/skills/
 **读 `references/brief-skeleton.md`（5 页）。** 五条铁律 + 八节骨架 + 三类产物 ——
 那是写指令的核心，不需要装任何东西，也不需要 Agent。
 
+### 4. 想让脚本跑起来（自动盯梢 + 自动验收）
+
+**`scripts/` 里是能直接用的代码，不用自己写。**
+
+```bash
+cd super-agent-brief-writing/scripts
+
+# ① 复制配置模板
+copy agent-config.example.json agent-config.json        # Mac/Linux: cp
+
+# ② 打开 agent-config.json，填 projects_root
+#    —— 你的项目根目录，它下面每个子文件夹是一个项目
+#    hermes_home 可以留空，会自动探测
+
+# ③ 自检：看到「项目根可用  是」就配好了
+python paths.py
+```
+
+**配好之后：**
+
+```bash
+python wb_watch.py --init     # 建监听基线（只需一次）
+python wb_watch.py            # 手动跑一次，静默就是正常
+```
+
+**然后把它挂到定时任务上**（每 5 分钟一次，8:00–22:00）。
+
+**★★ 第一次跑之前，先读 `scripts/paths.py` 开头的注释** ——
+它解释了这个文件为什么存在：原来 5 个脚本里有 10 处写死的绝对路径，
+换台机器就跑不起来。
+
+> **看到什么算正常：**
+> `paths.py` 全绿 → `--init` 打印「基线已建」→ 正常跑一次什么都不输出（静默）。
+> **静默不是故障，是默认状态。**
+
 ---
 
 ## 核心概念：只有三件事
@@ -100,7 +135,7 @@ cp -r super-agent-brief-writing ~/.hermes/skills/
 ```
 ① 把「判断」和「执行」切开，中间用一份书面指令连接
 ② 队列（待发 / 已完成 / 卡在外部）是唯一的派单状态源
-③ 验收不在你脑子里，在一个每 15 分钟跑一次的脚本里
+③ 验收不在你脑子里，在一个每 5 分钟跑一次的脚本里
 ```
 
 **★★ 最贵的一条经验，是「执行方会自己把队列打了勾」** —— 它把队列当任务清单，做完顺手打勾，
@@ -133,8 +168,8 @@ cp -r super-agent-brief-writing ~/.hermes/skills/
 | # | 前置 | 为什么必须 |
 |---|---|---|
 | 1 | 一个**没有 API** 的执行 Agent | 有 API 就该用回调，这套是负资产 |
-| 2 | 一个**定时任务机制**（cron / Windows 任务计划 / systemd timer） | 心跳和验收全靠「每 15 分钟跑一次」 |
-| 3 | **Python 3**（或自己用别的语言重写那三个脚本） | 队列解析 / 扫描 / 触发 |
+| 2 | 一个**定时任务机制**（cron / Windows 任务计划 / systemd timer） | 心跳和验收全靠「每 5 分钟跑一次」 |
+| 3 | **Python 3** + `scripts/` 里的代码 | 队列解析 / 扫描 / 触发。**代码已经写好了，不用自己写** —— 只要配 `agent-config.json` 里的两个路径 |
 | 4 | **Agent 的一次性调用入口** | judge 要起一个独立 session。Hermes 是 `hermes -z "..."`；你的 Agent 得有等价的 —— 没有它，判断起不来，只能退化成「只报完成不给判断」 |
 | 5 | **LLM API 额度** | 每次判断 15–20k token |
 
@@ -203,20 +238,29 @@ cp -r super-agent-brief-writing ~/.hermes/skills/
 ## 文件结构
 
 ```
-SKILL.md                              309 行　主文件（触发 + 硬规矩 + 常见坑索引）
+SKILL.md                           402 行　主文件（触发 + 硬规矩 + 常见坑）
 references/
-  ├── automation.md                   心跳 / 队列分段 / 外部改队列检测 / 语义缺口
-  ├── auto-acceptance-judge.md        judge 的完整实现（prompt 全文 / 锁 / 成本）
-  ├── brief-skeleton.md               五条铁律 + 八节骨架 + 三类产物
-  ├── acceptance.md                   验收五动作 + 三类「全过了但用户用不了」
-  ├── refactor-existing.md            改造已有代码（最长的一份）
-  ├── flow-diagram.md                 把这套机制画成图
-  └── publishing-status.md            发布进度（内部账本，可删）
+  ├── acceptance-standards.md          **开项目第一件事：分阶段验收标准库**
+  ├── acceptance.md                    验收五动作 + 三类「全过了但用户用不了」
+  ├── auto-acceptance-judge.md         judge 的完整实现（prompt 全文 / 锁 / 成本）
+  ├── automation.md                    心跳 / 队列分段 / 外部改队列检测 / 语义缺口 / **产物监控**
+  ├── brief-skeleton.md                五条铁律 + 八节骨架 + 三类产物 + **七轮实测配比**
+  ├── flow-diagram.md                  把这套机制画成图
+  ├── intake-triage.md                 **接一批改造需求时怎么归因分批**
+  ├── publishing-status.md             发布进度（内部账本，可删）
+  └── refactor-existing.md             改造已有代码（最长的一份）
 templates/
-  ├── instruction.md                  指令模板：必带的三句话 + 八节骨架
-  ├── mechanism-diagram.html          机制可视化骨架（已脱敏）
-  └── gift-webpage-brief.md           单文件礼物页的指令骨架
-docs/preview.png                      预览图
+  ├── gift-webpage-brief.md            单文件礼物页的指令骨架
+  ├── instruction.md                   指令模板：**必带的三句话** + 八节骨架
+  └── mechanism-diagram.html           机制可视化单文件（顶部有「怎么用这个模板」）
+scripts/
+  ├── agent-config.example.json        配置模板，复制成 agent-config.json 再改
+  ├── judge.py                         起一次独立 session 做三段判断
+  ├── paths.py                         **所有路径的唯一来源**（换设备只改 agent-config.json）
+  ├── project_watch.py                 每日全量汇报的数据采集（可选）
+  ├── queue.py                         队列解析 / 匹配完成信号 / 打勾
+  └── wb_watch.py                      **主循环**：扫日志 + 扫产物 + 心跳 + 打勾 + 触发判断
+docs/preview.png                   预览图
 ```
 
 ---
@@ -234,7 +278,7 @@ docs/preview.png                      预览图
    三份加起来约 400 行 Python，references/auto-acceptance-judge.md 里有完整 prompt。
 
 ③ 只适用于无 API 环境。
-   每 15 分钟轮询、人肉粘贴、让执行方写日志当汇报 ——
+   每 5 分钟轮询、人肉粘贴、让执行方写日志当汇报 ——
    这三样在没有 API 时是唯一可行解，在有 API 时全是负资产。
 
 ④ 成本：每次自动判断 15–20k token（约 ¥0.1）。

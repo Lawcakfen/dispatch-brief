@@ -1,0 +1,18 @@
+{
+  "_说明": "把本文件复制成 agent-config.json（同目录），改下面的值就能跑起来。以 _ 开头的字段是注释，脚本会忽略。",
+
+  "_hermes_home": "Hermes 的数据目录。留空（\"\"）= 自动探测：Windows 找 %LOCALAPPDATA%\\hermes，Mac/Linux 找 ~/.hermes 或 ~/hermes。",
+  "hermes_home": "",
+
+  "_projects_root": "★ 必填。你的项目根目录 —— 它下面每个子文件夹是一个项目，每个项目里有一个队列文件（如 _给WB.md）。",
+  "projects_root": "",
+
+  "_focus_projects": "要详细汇报的项目名（子串匹配）。留空 = 全部项目都概览。",
+  "focus_projects": [],
+
+  "_client_projects": "客户项目名（子串匹配），会单独标成「客户项目」。没有就留空。",
+  "client_projects": [],
+
+  "_paused_projects": "已收尾的项目：{\"项目名子串\": \"一句状态说明\"}。收尾项目不进停滞统计。",
+  "paused_projects": {}
+}

@@ -393,6 +393,20 @@ B 视觉产物（海报·长图）／C 改造已有代码（`references/refactor
 | `templates/mechanism-diagram.html` | 机制可视化单文件 HTML 骨架（已脱敏，占位符可替换） |
 | `templates/gift-webpage-brief.md` | 单文件礼物页的指令骨架（产物类型 A） |
 
+**★★ `scripts/` 里是能直接跑的代码（不在本 skill 目录里，在仓库根）：**
+
+| 文件 | 内容 |
+|---|---|
+| `scripts/paths.py` | **所有路径的唯一来源** —— 换设备只改 `agent-config.json`，不碰任何 .py |
+| `scripts/queue.py` | 队列解析 / 匹配完成信号 / 打勾 |
+| `scripts/judge.py` | 起一次独立 session 做三段判断 |
+| `scripts/wb_watch.py` | 主循环：扫日志 + 扫产物 + 心跳 + 打勾 + 触发判断 |
+| `scripts/project_watch.py` | 每日全量汇报的数据采集（可选，不装也能跑） |
+| `scripts/agent-config.example.json` | 配置模板，复制成 `agent-config.json` 再改 |
+
+**★ 为什么单独拎出 `paths.py`：** 原来这 5 个脚本里散着 **10 处写死的绝对路径** + 9 处客户/项目名。
+换一台机器直接跑不起来，而且客户名不能发布。集中到一个 json 之后，安装步骤变成「复制模板 → 改两个值」。
+
 **★ 这份 skill 假设你已经有一套「产物可回滚 + 交付要验收」的基本习惯。如果没有，先建这两个习惯再来 —— 下面所有机制都建立在它们之上。**
 
 ---

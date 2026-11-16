@@ -35,3 +35,6 @@ desktop.ini
 # 只保留 docs/ 里的图，别把随手截图带进来
 screenshot-*.png
 tmp-*.png
+
+# 用户的本地配置（含个人路径 / 项目名），不要提交
+agent-config.json
