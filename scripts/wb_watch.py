@@ -504,7 +504,15 @@ def main():
         ch = diff_artifacts(prev_art, arts)
         if not ch:
             continue
-        art_changes.append({"proj": proj, "changes": ch[:6], "total": len(ch)})
+        # ★ 2026-11-17：带上「memory 最后一次写入时间」——
+        #   用来区分「从来没记过」和「记过、之后又改了」。
+        #   实测（11-17 12:07 写 memory → 12:15、12:21 又改海报）：
+        #   原来的文案只说「memory 没记录」，会让人以为完全没写、跑去重写一遍。
+        mm = 0
+        for fmeta in (cur.get(proj) or {}).values():
+            mm = max(mm, fmeta.get("mtime") or 0)
+        art_changes.append({"proj": proj, "changes": ch[:6], "total": len(ch),
+                            "mem_mtime": mm})
 
     # ---- ③ 心跳「卡住了」 ----
     for proj, (qp, q) in pend.items():
@@ -589,7 +597,13 @@ def main():
 
     # ★ 产物变了但 memory 没记录（对话式修改的盲区）
     for a in art_changes:
-        lines = [f"⚠ {a['proj']}　产物变了，但 memory 没记录"]
+        mm = a.get("mem_mtime") or 0
+        if mm:
+            when = datetime.datetime.fromtimestamp(mm).strftime("%m-%d %H:%M")
+            head = f"⚠ {a['proj']}　产物变了（memory 最后一次写入 {when}，之后又改了 {a['total']} 个文件）"
+        else:
+            head = f"⚠ {a['proj']}　产物变了（这个项目还没有 memory 日志）"
+        lines = [head]
         for f, old_sz, new_sz, mt in a["changes"]:
             hhmm = datetime.datetime.fromtimestamp(mt).strftime("%H:%M")
             delta = new_sz - old_sz
