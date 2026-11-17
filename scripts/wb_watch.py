@@ -55,6 +55,10 @@ ARTIFACT_SKIP_DIRS = {
     "node_modules", ".git", "__pycache__", "dist", "build", ".cache", "vendor",
     ".next", ".nuxt", "coverage", ".venv", "venv", "clone_work",
     "cache", "cache_data", "code cache", "gpucache", "crashpad",
+    # ★ 2026-11-17 实测：跑一次 playwright 就冒出 2 个 .playwright-cli 临时文件，
+    #   被当成「产物变了」。同理加 .tmp / tmp / .pytest_cache。
+    ".playwright-cli", "playwright-report", "test-results", ".pytest_cache",
+    ".mypy_cache", ".ruff_cache", "tmp", ".tmp",
     "blob_storage", "service worker", "local storage", ".workbuddy",
 }
 ARTIFACT_SKIP_EXT = (".log", ".lock", ".pyc", ".pyo", ".swp")
@@ -615,8 +619,16 @@ def main():
                              f"（{sign}{human_size(abs(delta))}）")
         if a["total"] > len(a["changes"]):
             lines.append(f"　　…还有 {a['total'] - len(a['changes'])} 个文件")
-        lines.append("　　—— 是不是在 WB 里直接对话改的？如果是，下次让它顺手写一句 memory，")
-        lines.append("　　　 我才知道改了什么；不然我只能看见「文件变了」。")
+        if mm:
+            # ★ 情况一：memory 记过，之后又改了 —— 只说明情况，不教学。
+            #   实测（11-17）：WB 12:07 写得非常详细，12:15、12:21 又调了两版样。
+            #   那种情况下再教用户「下次写 memory」是噪音，他已经写了。
+            lines.append("　　—— 这些是 memory 写完之后又改的。")
+            lines.append("　　　 改动大的话补一句「加到 memory 末尾」；一句话的小改可以忽略。")
+        else:
+            # ★ 情况二：这个项目从来没记过 —— 才教他怎么写。
+            lines.append("　　—— 这个项目还没有 memory 日志。")
+            lines.append("　　　 下次改完补一句「把这次改动加到 memory」，我才知道改了什么。")
         out.append("\n".join(lines))
 
     if events:
