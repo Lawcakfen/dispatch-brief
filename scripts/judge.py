@@ -20,9 +20,16 @@ import subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paths                      # ★ 所有路径的唯一来源
 
-# Hermes 可执行文件：先用 PATH 里的，找不到就按 HERMES_HOME 推
-HERMES = shutil.which("hermes") or os.path.join(
-    paths.HERMES_HOME, "hermes-agent", "venv", "Scripts", "hermes.EXE")
+# Hermes 可执行文件：显式指定 > PATH 里的 > 按 HERMES_HOME 推
+#   ★ HERMES_BIN 环境变量优先，两个用处：
+#     ① 你的 hermes 装在别处（非默认路径）可以直接指
+#     ② 测试要模拟「没装 Hermes」时，指一个不存在的路径即可
+#        —— 实测：Windows 上 shutil.which 会绕过被改写的 PATH 找到真 hermes，
+#        所以「剥 PATH」这种模拟方式不可靠。
+HERMES = (os.environ.get("HERMES_BIN")
+          or shutil.which("hermes")
+          or os.path.join(paths.HERMES_HOME, "hermes-agent", "venv", "Scripts",
+                          "hermes.EXE"))
 
 
 def hermes_missing_help():
