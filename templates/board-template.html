@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>项目进度看板 · 11-13</title>
+<style>
+  :root{
+    --bg:#f6f7f5; --panel:#ffffff; --ink:#1f2328; --ink-2:#5b636b; --ink-3:#8a929a;
+    --line:#e4e7e6; --line-2:#eef0ef; --accent:#2f6b58;
+    --red:#cf4b4b; --amber:#c08a1e; --green:#2e8b6b; --grey:#a2a9ad;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.65}
+  .wrap{max-width:1000px;margin:0 auto;padding:36px 24px 80px}
+  .eyebrow{font-size:12px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase;margin-bottom:6px}
+  h1{font-size:28px;line-height:1.3;margin:0 0 4px;font-weight:650;letter-spacing:-.01em}
+  .sub{font-size:13px;color:var(--ink-3);margin-bottom:26px}
+  /* ★ 数据更新时间：超过 26 小时变红，提示页面已过期 */
+  .upd{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3);
+    background:#f1f3f1;border:1px solid var(--line);border-radius:20px;padding:3px 12px;
+    margin:-18px 0 24px}
+  .upd.stale{color:#a02020;background:#fdf2f2;border-color:#f0c9c9;font-weight:600}
+  .upd.stale::before{content:"⚠";}
+  .upd.warn{color:#8a6d1f;background:#fdf9ec;border-color:#e8dcb5}
+  /* 刷新按钮：点它请本地服务跑一遍 project_watch.py --board，7 秒后页面自动 reload */
+  .refresh-btn{display:inline-flex;align-items:center;gap:4px;margin-left:10px;
+    font-size:12px;padding:3px 12px;border:1px solid var(--line);border-radius:14px;
+    color:var(--ink-2);background:#fff;text-decoration:none;cursor:pointer;
+    vertical-align:middle;transition:background .15s,border-color .15s}
+  .refresh-btn:hover{background:#f7f7f7;border-color:#c8c8c8}
+  .refresh-btn:disabled{opacity:.55;cursor:default}
+  button.refresh-btn{font-family:inherit;line-height:1.4}
+  .refresh-hint{font-size:11px;color:var(--ink-3);margin-left:8px}
+  /* 实时变动块（2026-11-20） */
+  .live{margin:12px 0 4px;padding:10px 14px;border:1px solid var(--line);
+    border-radius:8px;background:#fafafa;font-size:12.5px;line-height:1.7}
+  .live b{font-size:12px}
+  .live-t{color:var(--ink-3);font-size:11.5px;margin-left:8px}
+  .live ul{margin:6px 0 0;padding-left:20px}
+  .live li{margin:2px 0;color:var(--ink-2)}
+  .live-none{color:var(--ink-3);margin-top:4px}
+  /* 异常区（2026-11-21 · 设计 3）
+     ★ 放在「实时变动」上面 —— 异常是「有哪里不对」，变动是「刚发生了什么」，
+       先看不对的。只列纯脚本能算出来的，零 token。 */
+  .anom{margin:12px 0 6px;padding:11px 15px;border:1px solid #e6c98f;
+    border-left:4px solid #c9971f;border-radius:8px;background:#fdf8ec;
+    font-size:12.5px;line-height:1.75}
+  .anom b{font-size:13px;color:#8a6d1f}
+  .anom-t{color:#a08b4a;font-size:11.5px;margin-left:8px}
+  .anom ul{margin:7px 0 0;padding-left:20px}
+  .anom li{margin:3px 0;color:#6f5a18}
+  .anom li span{color:#8a6d1f}
+  .anom.ok{border-color:#cfe3d6;border-left-color:#3f7a52;background:#f4f9f5}
+  .anom.ok b{color:#2e6b47}
+  .anom.ok .anom-t{color:#6f9b80}
+  /* 卡片上的两个时间（2026-11-20） */
+  .mtimes{margin:6px 0 10px;font-size:11.5px;color:var(--ink-3);line-height:1.5}
+  .mtimes b{font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  /* 项目状态字段（2026-11-21 · 设计 2）
+     ★ 放在「现在到哪」上面：字段是事实/约定，散文是解释，事实先看。 */
+  .pstate{margin:2px 0 12px;padding:9px 12px;border:1px solid var(--line-2);
+    border-radius:8px;background:#fbfcfb;font-size:12.5px;line-height:1.7}
+  .ps-badge{display:inline-block;border-radius:999px;padding:1px 10px;font-size:11.5px;
+    font-weight:600;margin-bottom:5px}
+  .ps-stale{margin-left:8px;font-size:11px;color:#8a6d1f;background:#fdf8ec;
+    border:1px solid #e6c98f;border-radius:999px;padding:1px 8px}
+  .s-idle{background:#eef0f0;color:#67707a}
+  .s-dev{background:#e8f0fa;color:#2c5c8f}
+  .s-check{background:#fdf3e0;color:#96690d}
+  .s-done{background:#e9f5ee;color:#2e6b47}
+  .s-pause{background:#f2eef7;color:#5f4a7a}
+  .ps-row{display:flex;gap:8px;align-items:baseline}
+  .ps-k{flex:0 0 46px;color:var(--ink-3);font-size:11.5px}
+  .ps-v{flex:1;color:var(--ink-2)}
+  .mt-sep{margin:0 6px;opacity:.5}
+  .mt-judge.none{color:#a02020}
+  .mt-lag{color:#8a6d1f}
+  .mt-lag b{color:#8a6d1f}
+  /* 「疑似已完成」提示条（2026-11-20）—— 机器只提示，人点确认才打勾 */
+  .suspect{margin:10px 0 8px;padding:10px 14px;border-radius:8px;
+    background:#fdf9ec;border:1px solid #e8dcb5;font-size:12.5px;color:#6f5a18}
+  .suspect .sp-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .suspect .sp-ico{font-size:13px}
+  .suspect .sp-head b{color:#8a6d1f}
+  .suspect .sp-w{color:#a08b4a;font-size:11.5px}
+  .suspect .sp-list{margin:7px 0 9px;padding-left:2px}
+  .suspect .sp-item{padding:2px 0;line-height:1.6;color:#6f5a18}
+  .suspect .sp-item.done{color:#3f7a52;text-decoration:none}
+  .suspect .sp-item.fail{color:#b03a3a}
+  .suspect .sp-det{display:block;margin-left:12px;font-size:11px;opacity:.82;
+    font-family:ui-monospace,Consolas,monospace;word-break:break-all}
+  .suspect .sp-acts{display:flex;gap:8px;align-items:center}
+  .suspect .sp-ok{border:1px solid #c9a227;background:#fff;color:#6f5a18;
+    font:inherit;font-size:12px;padding:4px 14px;border-radius:999px;cursor:pointer}
+  .suspect .sp-ok:hover{background:#f6efd6}
+  .suspect .sp-ok:disabled{opacity:.6;cursor:default}
+  .suspect .sp-no{border:1px solid transparent;background:transparent;color:#a08b4a;
+    font:inherit;font-size:11.5px;padding:4px 8px;border-radius:999px;cursor:pointer}
+  .suspect .sp-no:hover{text-decoration:underline}
+  .suspect .sp-reload{border:1px solid #7ba888;background:#fff;color:#3f7a52;
+    font:inherit;font-size:12px;padding:4px 14px;border-radius:999px;cursor:pointer}
+  .suspect .sp-reload:hover{background:#f2f8f4}
+
+  /* 今天只做这一件 */
+  .focus{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:10px;padding:22px 24px;margin-bottom:34px;box-shadow:0 1px 3px rgba(20,30,25,.03)}
+  .focus-label{font-size:12px;letter-spacing:.1em;color:var(--accent);font-weight:650;margin-bottom:10px}
+  .focus-empty{color:var(--ink-2);font-size:15px}
+  .focus-empty b{color:var(--ink);font-weight:600}
+  .focus-empty small{display:block;margin-top:8px;color:var(--ink-3);font-size:12.5px;line-height:1.6}
+  .focus-text{font-size:19px;line-height:1.6;font-weight:550;color:var(--ink);white-space:pre-wrap}
+  .focus-meta{margin-top:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-3)}
+  .focus-meta button{background:none;border:1px solid var(--line);color:var(--ink-2);border-radius:6px;
+    padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+  .focus-meta button:hover{border-color:var(--ink-3);color:var(--ink)}
+
+    .pin{display:none !important}
+  /* ★ 待发给 WB 的指令块 */
+  .todo{margin-top:12px;padding:12px 14px;border-radius:8px;background:#fffdf5;border:1px solid #efe6c9}
+  .todo .k{font-size:11.5px;letter-spacing:.06em;color:#8a6d1f;font-weight:650;margin-bottom:7px}
+  .todo .tv{font-size:13.5px;line-height:1.65;color:var(--ink);padding:5px 0 5px 14px;position:relative;
+    display:flex;align-items:flex-start;gap:10px}
+  .todo .tv::before{content:"▸";position:absolute;left:0;color:#b8912a}
+  .todo .tt{flex:1;min-width:0}
+  .todo .lab{color:#8a6d1f;font-weight:650;font-size:12px;letter-spacing:.03em}
+  .todo .lab-done{color:#2e8b6b}
+  .cp{flex:none;margin-top:2px;background:#fff;border:1px solid #ddc98f;color:#8a6d1f;border-radius:5px;
+    padding:2px 9px;font-size:11.5px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .cp:hover{background:#b8912a;color:#fff;border-color:#b8912a}
+  .cp.done{background:#2e8b6b;color:#fff;border-color:#2e8b6b}
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+  .sec-head h2{font-size:14px;font-weight:650;margin:0;color:var(--ink-2)}
+  .sec-head span{font-size:12px;color:var(--ink-3)}
+
+  .cards{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(max-width:760px){.cards{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;
+    position:relative;transition:box-shadow .15s,border-color .15s}
+  .card:hover{box-shadow:0 4px 16px rgba(20,30,25,.07);border-color:#d4d9d6}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--grey)}
+  .card-in{padding:20px 22px 18px 24px}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+  .pname{font-size:16.5px;font-weight:650;letter-spacing:-.005em;margin:0 0 3px}
+  .pfull{font-size:11.5px;color:var(--ink-3);word-break:break-all}
+  .stall{flex:none;text-align:right;min-width:74px}
+  .stall .n{font-size:27px;font-weight:660;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .stall .u{font-size:11px;color:var(--ink-3);display:block;margin-top:4px}
+  .stall.moving .n{font-size:16px;font-weight:600;letter-spacing:0}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:2px 9px;border-radius:20px;
+    border:1px solid var(--line);color:var(--ink-2);margin-top:14px;background:#fbfcfb}
+  .tag.none{color:var(--ink-3);background:transparent;border-style:dashed}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--grey)}
+  .field{margin-top:16px}
+  .field .k{font-size:11px;letter-spacing:.08em;color:var(--ink-3);margin-bottom:4px}
+  .field .v{font-size:13.5px;color:var(--ink);white-space:pre-wrap;word-break:break-word;line-height:1.7}
+  .advice{background:#f8faf9;border:1px solid var(--line-2);border-radius:7px;padding:11px 13px;margin-top:14px}
+  .advice .k{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .advice .v{font-size:13.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+  .pin{background:#fff;border:1px solid #cfdcd5;color:var(--accent);border-radius:5px;padding:2px 9px;
+    font-size:11.5px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .pin:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .pin.pinned{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .expand-hint{font-size:11.5px;color:var(--ink-3);margin-top:14px;display:flex;align-items:center;gap:6px;
+    user-select:none;padding:6px 0 2px;border-top:1px dashed var(--line-2)}
+  .chev{display:inline-block;transition:transform .18s;font-size:10px}
+  .raw{border-top:1px solid var(--line);background:#fbfcfb;padding:16px 22px 20px 24px;display:block}
+  .raw .rt{font-size:11px;letter-spacing:.08em;color:var(--ink-3);margin-bottom:9px}
+  pre{margin:0;font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,"Microsoft YaHei",monospace;
+    font-size:12px;line-height:1.85;white-space:pre-wrap;word-break:break-word;color:#333b38}
+  .full{margin-top:34px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .full summary{padding:15px 20px;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-2);list-style:none}
+  .full summary::-webkit-details-marker{display:none}
+  .full summary::before{content:"▸ ";color:var(--ink-3)}
+  .full[open] summary::before{content:"▾ "}
+  .full .body{border-top:1px solid var(--line);padding:16px 20px 20px}
+  .note{margin-top:28px;padding:18px 20px;background:#f1f3f1;border-radius:9px;font-size:12.5px;color:var(--ink-2);line-height:1.85}
+  .note b{color:var(--ink);font-weight:650}
+  .note ul{margin:8px 0 0;padding-left:18px}
+  .note li{margin:2px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">项目进度总表 · 单页看板</div>
+  <h1>项目进度</h1>
+  <div class="sub" id="snapshot"></div>
+  <div class="upd" id="upd">数据更新于 ——</div><button class="refresh-btn" id="btnRefresh"
+     onclick="doRefreshBoard()" title="刷新数据（不重新判断）">⟳ 刷新</button>
+  <button class="refresh-btn" id="btnFolder" onclick="openScriptFolder()"
+     title="用资源管理器打开脚本文件夹（要手动双击 .cmd 时用）">📁 脚本文件夹</button>
+  <span class="refresh-hint" id="refreshHint"></span>
+
+  <!-- ★ 实时变动块（2026-11-20）：每次 --board 当场扫描，不写进 _进度总表.md -->
+  <div id="live"></div>
+
+  <section class="focus" id="focus" style="display:none"></section>
+
+  <div class="sec-head">
+    <h2>项目卡片</h2>
+    <span id="cardCount"></span>
+  </div>
+  <div class="cards" id="cards"></div>
+
+  <details class="full">
+    <summary>查看源文件全文（一字未改）</summary>
+    <div class="body"><pre id="fullRaw"></pre></div>
+  </details>
+
+  <div class="note" id="note"></div>
+</div>
+
+<!-- 单一数据源：_进度总表.md 原文。以下内容逐字照录，未做任何修改。 -->
+<script type="application/json" id="meta-times">{}</script>
+<!-- ★ 项目状态字段（2026-11-21 · 设计 2）
+     由 judge 填、脚本注入。字段只有几个固定值，比散文难编造。 -->
+<script type="application/json" id="pstate">{}</script>
+<script type="text/plain" id="raw-md"># 项目进度总表
+
+> 这里是示例占位。
+> 真正生成看板时，project_watch.py 会把你的 <项目根>/_进度总表.md 原文注入到这块，
+> 你在浏览器里看到的就是你自己的数据。
+>
+> ★ 这段占位故意留得很短：它的作用只是让你在没数据时也能看见页面长什么样。
+
+## 示例·内容站改版
+- 11-22　—　　　　1 天没动
+
+## 示例·小程序上架
+- 11-22　—　　　　3 天没动
+
+## 11-22 汇报
+- 示例·内容站改版：现在 导航改完，正文区还是旧版 ｜ 建议 先改正文区
+- 示例·小程序上架：现在 资料齐了已提交，等审核 ｜ 建议 这周别管它
+</script>
+
+<script>
+(function(){
+  const raw = document.getElementById('raw-md').textContent.replace(/\r\n/g,'\n');
+  const lines = raw.split('\n');
+  document.getElementById('fullRaw').textContent = raw;
+
+  // 找最后一个「## ... 汇报」段落
+  let reportIdx = -1, reportTitle = '';
+  for (let i=0;i<lines.length;i++){
+    const m = lines[i].match(/^##\s+(.+汇报)\s*$/);
+    if (m){ reportIdx = i; reportTitle = m[1]; }
+  }
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // ★ 纯文本渲染里 ** 不产生加粗，只产生脏字 —— 展示前统一去掉
+  const stripMd = s => s.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*\*/g,'').replace(/`/g,'');
+  // ★ 完整指令排版：在「为什么：」「做完请：」前换行并加粗标签
+  const fmt = s => esc(s)
+    .replace(/为什么：/g, '<br><span class="lab">为什么：</span>')
+    .replace(/做完请：/g, '<br><span class="lab lab-done">做完请：</span>');
+
+  // 汇报行 → 卡片数据（机械切分，按原文顺序）
+  const reports = [];
+  for (let i=reportIdx+1;i<lines.length;i++){
+    const L = lines[i];
+    if (/^##\s/.test(L)) break;   // ★ 遇到下一个 ## 段就停（防止吃掉「## 给WB 待发」段）
+    if (!/^-\s/.test(L)) continue;
+    const body = L.replace(/^-\s*/,'');
+    // ★★ 只有带「｜ 建议」的才是项目行 —— 汇总行（如「另有 17 个项目已停 21 天以上：…」）不带，自动跳过
+    if (!/｜\s*建议/.test(body)) continue;
+    const ci = body.indexOf('：');
+    if (ci < 0) continue;
+    const name = body.slice(0,ci);
+    const rest = body.slice(ci+1);
+    const parts = rest.split(/｜\s*建议\s*/);
+    const now = (parts[0]||'').replace(/^现在\s*/,'');
+    const advice = parts.length>1 ? parts[1] : '';
+    reports.push({name, now, advice, line:L, lineIdx:i});
+  }
+
+  // 状态色：只按原文出现的状态符号翻译，不判断、不推断
+  // ★ 顺序要紧：先认 🔴 > ⚠️ > ⏸ > ✅ > ▸，符号越具体越前
+  function statusOf(text){
+    if (text.includes('🔴')) return {key:'red',   color:'var(--red)',   label:text.match(/🔴[^\s]*/)?text.match(/🔴\s*[^　\n]*/)[0].trim():'🔴'};
+    if (text.includes('⚠️')) return {key:'amber', color:'var(--amber)', label:'⚠️ 建议标 ⏸ 暂停'};
+    if (text.includes('⏸'))  return {key:'pause', color:'var(--mut)',   label:'⏸ 暂停'};
+    if (text.includes('✅'))  return {key:'done', color:'var(--green)', label:'✅ 已收尾'};
+    if (text.includes('▸'))  return {key:'green', color:'var(--green)', label:'▸ 在动'};
+    return null;
+  }
+
+  // 收集每个项目在源文件里的全部原文行（含重复的 ## 标题，不合并、不去重）
+  function rawFor(name){
+    const out=[];
+    for (let i=0;i<lines.length;i++){
+      const L=lines[i];
+      if (/^##\s/.test(L) && L.includes(name) && !/汇报/.test(L)){
+        out.push(L);
+        for (let j=i+1;j<lines.length && !/^##\s/.test(lines[j]);j++){
+          if (/^-\s/.test(lines[j])) out.push(lines[j]);
+        }
+      }
+    }
+    const r = reports.find(r=>r.name===name);
+    if (r) out.push(r.line);
+    return out.join('\n');
+  }
+
+  // 流水：取该项目日期最大的一条（机械规则，非判断），读停滞天数与状态符号
+  function flowFor(name){
+    let best=null;
+    for (let i=0;i<lines.length;i++){
+      if (!/^##\s/.test(lines[i]) || !lines[i].includes(name) || /汇报/.test(lines[i])) continue;
+      const L=lines[i+1]||'';
+      const dm=L.match(/^-\s*(\d{2})-(\d{2})/);
+      if(!dm) continue;
+      const key=dm[1]+dm[2];
+      if(!best || key>=best.key) best={key,text:L,title:lines[i]};
+    }
+    return best;
+  }
+
+  // ★ 从「## 给WB 待发」段里取该项目未发出的指令（双向子串匹配项目名）
+  function todosFor(name){
+    let start=-1;
+    for(let i=0;i<lines.length;i++){
+      if(/^##\s*给WB\s*待发\s*$/.test(lines[i])){ start=i; break; }
+    }
+    if(start<0) return [];
+    const out=[];
+    for(let i=start+1;i<lines.length && !/^##\s/.test(lines[i]);i++){
+      const L=lines[i];
+      if(!/^-\s/.test(L)) continue;
+      const body=L.replace(/^-\s*/,'');
+      const parts=body.split('§').map(s=>s.trim());
+      if(parts.length<2) continue;
+      const proj=parts[0], short=parts[1], full=parts[2]||parts[1];
+      if(proj===name || proj.includes(name) || name.includes(proj.replace(/@.*$/,''))){
+        out.push({short, full});
+      }
+    }
+    return out;
+  }
+
+  const cards = reports.map(r=>{
+    // ★ 没有独立「## 项目名」段时，退回用汇报行本身（这样「N 天没动」和状态符号也能解析到）
+    const f = flowFor(r.name) || {key:'', text:'', title:'## '+r.name};
+    // ★★★ 状态优先读【汇报行】（那是判断层刚写的），流水行只作兜底。
+    //     踩过的坑：地图已改成「✅ 已收尾」，但 flowFor 找到一条旧的「6 天没动」，
+    //     卡片的 ✅ 被旧流水盖住了 —— 等于新判断永远显示不出来。
+    const st = statusOf(r.now) || statusOf(f.text);
+    // ★ 暂停 / 已收尾 的项目不再显示「N 天没动」—— 那两句话互相打脸
+    const isFrozen = st && (st.key === 'pause' || st.key === 'done');
+    const days = isFrozen ? null
+      : ((r.line.match(/(\d+)\s*天没动/) || f.text.match(/(\d+)\s*天没动/) || [])[1] || null);
+    return Object.assign({}, r, {
+      full: f ? f.title.replace(/^##\s*/,'') : '（源文件无对应 ## 标题）',
+      days, st,
+      flowText: f ? f.text : '',
+      raw: rawFor(r.name),
+      todos: todosFor(r.name)
+    });
+  });
+
+  // ★ 排序：① 有「待发指令」的在前 ② 组内停得越久越前 ③ 无指令的在动 → 无指令停滞 ④ 地图等无指令停滞垫底
+  cards.sort((a,b)=>{
+    const ka = (a.todos.length?0:10) + ((a.days&&+a.days>0)?1:0);
+    const kb = (b.todos.length?0:10) + ((b.days&&+b.days>0)?1:0);
+    if(ka!==kb) return ka-kb;
+    return (+b.days||0)-(+a.days||0);
+  });
+
+  // 顶部：今天只做这一件 —— 源表未指定，由用户点选
+  const FKEY='wb_board_focus_v1';
+  function getFocus(){ try{return JSON.parse(localStorage.getItem(FKEY)||'null')}catch(e){return null} }
+  function renderFocus(){
+    const f=getFocus(), box=document.getElementById('focus');
+    if(!f){
+      box.innerHTML='<div class="focus-label">今天只做这一件</div>'+
+        '<div class="focus-empty">源表没有指定「今天只做这一件」。<b>下面 '+cards.length+' 条都是「建议」，我不替你挑。</b>'+
+        '<small>点任意卡片里建议右侧的「钉到今天」，那一句原文就会原样出现在这里。数据不改，只是换个地方显示。</small></div>';
+    }else{
+      box.innerHTML='<div class="focus-label">今天只做这一件</div>'+
+        '<div class="focus-text">'+esc(stripMd(f.advice))+'</div>'+
+        '<div class="focus-meta"><span>来源：'+esc(f.name)+' · '+esc(reportTitle)+'</span><button id="unpin">取消</button></div>';
+      document.getElementById('unpin').onclick=()=>{localStorage.removeItem(FKEY);renderFocus();renderCards();};
+    }
+  }
+
+  // ★ 每个项目的两个时间（2026-11-20）
+  //   info  = 该项目文件最后动过的时间（客观，扫描得出）
+  //   judge = 这条判断是什么时候写的（主观，set_one 记录）
+  //   两个差得远 → 判断可能已经跟不上项目了，先点刷新。
+  let META = {};
+  try {
+    META = JSON.parse((document.getElementById('meta-times')||{}).textContent || '{}') || {};
+  } catch(e) { META = {}; }
+  function metaOf(name){
+    if (!name) return null;
+    if (META[name]) return META[name];
+    for (const k in META){
+      if (name.indexOf(k) >= 0 || k.indexOf(name) >= 0) return META[k];
+    }
+    return null;
+  }
+
+  /* ★★★ 项目状态字段（2026-11-21 · 设计 2）
+     为什么要有：散文（现在到哪/建议）是 LLM 写的，可以编；
+     这几个字段只有固定取值，编不出来，而且能排序、能统计。
+     stage 取值只有五个：未开始 / 开发中 / 待验收 / 已完成 / 暂停 */
+  let PSTATE = {};
+  try {
+    PSTATE = JSON.parse((document.getElementById('pstate')||{}).textContent || '{}') || {};
+  } catch(e) { PSTATE = {}; }
+  const STAGE_CLS = {
+    '未开始':'s-idle', '开发中':'s-dev', '待验收':'s-check',
+    '已完成':'s-done', '暂停':'s-pause'
+  };
+  function pstateOf(name){
+    if (!name) return null;
+    if (PSTATE[name]) return PSTATE[name];
+    for (const k in PSTATE){
+      if (name.indexOf(k) >= 0 || k.indexOf(name) >= 0) return PSTATE[k];
+    }
+    return null;
+  }
+  function pstateBlock(name){
+    const s = pstateOf(name);
+    if (!s) return '';
+    const rows = [];
+    if (s.next && s.next !== '无')      rows.push(['下一步', s.next]);
+    if (s.blocker && s.blocker !== '无') rows.push(['卡在', s.blocker]);
+    if (s.criterion && s.criterion !== '无') rows.push(['验收', s.criterion]);
+    let h = '<div class="pstate">';
+    if (s.stage){
+      h += '<span class="ps-badge ' + (STAGE_CLS[s.stage] || 's-idle') + '">' + esc(s.stage) + '</span>';
+    }
+    // ★ 状态字段过期提示：06:20 的 cron 只写散文不写字段，这里必须看得出来
+    if (s.stale_h !== null && s.stale_h !== undefined && s.stale_h > 26){
+      h += '<span class="ps-stale">状态字段 ' + s.stale_h + ' 小时没更新 · 点刷新</span>';
+    }
+    h += rows.map(r => '<div class="ps-row"><span class="ps-k">' + esc(r[0]) + '</span>'
+                     + '<span class="ps-v">' + esc(r[1]) + '</span></div>').join('');
+    h += '</div>';
+    return h;
+  }
+
+  function renderCards(){
+    const box=document.getElementById('cards');
+    const f=getFocus();
+    box.innerHTML=cards.map((c,i)=>{
+      const color=c.st?c.st.color:'var(--grey)';
+      // ★ 已收尾的项目不显示「N 天没动」—— 做完了不是停滞
+      const isDone = c.st && c.st.key === 'done';
+      const stall = isDone
+        ? '<div class="stall moving"><span class="n">—</span><span class="u">已收尾</span></div>'
+        : (c.days
+          ? '<div class="stall"><span class="n">'+c.days+'</span><span class="u">天没动</span></div>'
+          : '<div class="stall moving"><span class="n">'+esc(c.st ? c.st.label : '—')+'</span><span class="u">'+(c.st ? '' : '原文未标停滞天数')+'</span></div>');
+      const tag = c.st
+        ? '<span class="tag"><span class="dot" style="background:'+color+'"></span>'+esc(c.st.label)+'</span>'
+        : '<span class="tag none"><span class="dot"></span>原文无状态标记</span>';
+      const pinned = f && f.name===c.name && f.advice===c.advice;
+      // ★ 两个时间：信息更新（文件最后动过）/ 指令（判断什么时候写的）
+      const mt = metaOf(c.full || c.name);
+      let mtxt = '';
+      if (mt){
+        const iv = (mt.info || '—').replace(/^\d{4}-/, '');
+        const jv = (mt.judge || '').replace(/^\d{4}-/, '');   // 去掉年，跟 info 同格式才能比大小
+        // 文件比判断新 → 判断可能已经跟不上项目了（同格式字符串可直接比大小）
+        const lag = jv && iv !== '—' && iv > jv;
+        mtxt = '<div class="mtimes">'+
+          '<span class="mt-info">信息更新 <b>'+esc(iv)+'</b></span>'+
+          (jv
+            ? '<span class="mt-sep">｜</span><span class="mt-judge'+(lag?' mt-lag':'')+'">指令 <b>'+esc(jv)+'</b>'+(lag?' · 项目比判断新':'')+'</span>'
+            : '<span class="mt-sep">｜</span><span class="mt-judge none">指令时间未知（点刷新后记录）</span>'
+          )+
+        '</div>';
+      }
+      return '<article class="card" style="border-left-color:'+color+'">'+
+        '<div class="card-in">'+
+          '<div class="card-top"><div><h3 class="pname">'+esc(c.name)+'</h3><div class="pfull">'+esc(c.full)+'</div></div>'+stall+'</div>'+
+          tag+
+          mtxt+
+          pstateBlock(c.full || c.name)+
+          '<div class="field"><div class="k">现在到哪</div><div class="v">'+esc(stripMd(c.now))+'</div></div>'+
+          '<div class="advice"><div class="k"><span>建议</span><button class="pin'+(pinned?' pinned':'')+'" data-pin="'+i+'">'+(pinned?'已钉在顶部':'钉到今天')+'</button></div>'+
+            '<div class="v">'+esc(stripMd(c.advice))+'</div></div>'+
+          (c.todos && c.todos.length
+            ? '<div class="todo"><div class="k">⏳ 待发给 WB（'+c.todos.length+'）· 点「复制」拿完整指令</div>'+
+              c.todos.map((t,j)=>'<div class="tv"><span class="tt">'+fmt(t.full)+'</span>'+
+                '<button class="cp" data-cp="'+i+'-'+j+'" title="复制完整指令">复制</button></div>').join('')+'</div>'
+            : '')+
+        '</div>'+
+        '<div class="raw"><div class="rt">原文照录 · 按源文件顺序 · 重复的标题不合并</div><pre>'+esc(c.raw)+'</pre></div>'+
+      '</article>';
+    }).join('');
+
+    // ★ 一键复制完整指令（动作 + 为什么 + 做完请）
+    box.querySelectorAll('[data-cp]').forEach(btn=>{
+      btn.addEventListener('click',async e=>{
+        e.stopPropagation();
+        const [ci,cj]=btn.dataset.cp.split('-').map(Number);
+        const txt=(cards[ci]&&cards[ci].todos[cj])?cards[ci].todos[cj].full:'';
+        if(!txt) return;
+        let ok=false;
+        try{ await navigator.clipboard.writeText(txt); ok=true; }
+        catch(err){
+          try{
+            const ta=document.createElement('textarea');
+            ta.value=txt; ta.style.position='fixed'; ta.style.opacity='0'; ta.style.left='-9999px';
+            document.body.appendChild(ta); ta.focus(); ta.select();
+            ok=document.execCommand('copy'); document.body.removeChild(ta);
+          }catch(e2){}
+        }
+        const old=btn.textContent;
+        btn.textContent = ok ? '✓ 已复制' : '复制失败·手动选';
+        btn.classList.toggle('done', ok);
+        setTimeout(()=>{ btn.textContent=old; btn.classList.remove('done'); }, 1800);
+      });
+    });
+
+    box.querySelectorAll('[data-pin]').forEach(btn=>{
+      btn.addEventListener('click',e=>{
+        e.stopPropagation();
+        const c=cards[+btn.dataset.pin];
+        const cur=getFocus();
+        if(cur && cur.name===c.name && cur.advice===c.advice) localStorage.removeItem(FKEY);
+        else localStorage.setItem(FKEY,JSON.stringify({name:c.name,advice:c.advice}));
+        renderFocus();renderCards();
+      });
+    });
+  }
+
+  document.getElementById('snapshot').textContent =
+    '数据源：<项目根>/_进度总表.md　·　'+reportTitle+'　·　原文照录，未改动';
+  document.getElementById('cardCount').textContent = cards.length+' 张卡 · 顺序同「'+reportTitle+'」原文';
+  document.getElementById('note').innerHTML =
+    '<b>口径说明（边界写清楚，方便核对）</b><ul>'+
+    '<li>只读了 <b>_进度总表.md</b> 这一个文件；未扫目录、未读其它文件、未修改源文件。</li>'+
+    '<li>卡片的「项目名 / 现在到哪 / 建议」来自「'+esc(reportTitle)+'」段落，按 <b>：</b> 和 <b>｜ 建议</b> 机械切分；顺序与原文一致，未排序、未改写。</li>'+
+    '<li>「停滞 N 天」取自该项目日期最新的那条流水行里的「N 天没动」；源文件没写天数的（示例项目小程序）就显示原文「▸ 在动」，不补 0。</li>'+
+    '<li>状态色只翻译原文符号：🔴 → 红、⚠️ → 琥珀、▸ → 绿；<b>原文没有状态标记的一律中性灰</b>，不替它判断好坏。</li>'+
+    '<li>展开区是源文件里含该项目名的全部行，按原顺序原样照录；源文件中「示例项目-AI助手@Hermes」标题重复出现 4 次，照录未合并。</li>'+
+    '<li>顶部「今天只做这一件」：源文件里<b>没有这个字段</b>，4 条建议并列且无优先级，故不代选，交由点选；选择只存本机，不写回任何文件。</li>'+
+    '</ul>';
+
+  renderFocus();renderCards();
+})();
+
+// ── 刷新按钮（2026-11-20）────────────────────────────
+// 浏览器沙箱不允许网页执行本地程序（点 .cmd 链接只会显示源码）。
+// 所以按钮调本地服务代跑脚本。服务由 python scripts/serve_board.py 启动。
+// ★ 用绝对地址 + 服务已开 CORS：这样从文件夹双击 index.html（file://）打开也能用。
+var BOARD_API = 'http://127.0.0.1:8765';
+
+async function pingBoardService(){
+  var hint = document.getElementById('refreshHint');
+  if (!hint) return false;
+  try {
+    var r = await fetch(BOARD_API + '/ping', {cache: 'no-store'});
+    var j = await r.json();
+    if (j && j.ok) { hint.textContent = ''; hint.style.color = ''; return true; }
+  } catch (e) {}
+  hint.style.color = '#a02020';
+  hint.textContent = '⚠ 本地服务没起 —— 先跑 python scripts/serve_board.py，再刷新本页';
+  return false;
+}
+
+async function doRefreshBoard(){
+  var btn  = document.getElementById('btnRefresh');
+  var hint = document.getElementById('refreshHint');
+  btn.textContent = '⟳ 刷新中…（约 10 秒）';
+  btn.disabled = true;
+  hint.style.color = ''; hint.textContent = '';
+  try {
+    var r = await fetch(BOARD_API + '/refresh', {method: 'POST', cache: 'no-store'});
+    var j = await r.json();
+    if (j && j.ok) {
+      var jd = String(j.judge || '');
+      var note = '（无项目变动）';
+      if (jd.indexOf('没有需要重新判断') >= 0) {
+        note = '（无项目变动，判断没重写）';
+      } else if (jd.indexOf('✓') >= 0) {
+        var m = jd.match(/完成：成功 (\d+)/);
+        note = '（重写了 ' + (m ? m[1] : '?') + ' 个项目的判断）';
+      } else if (jd) {
+        note = '（判断出错，详见控制台）';
+        if (window.console) console.warn('[judge]', jd);
+      }
+      hint.textContent = '✓ 已刷新 ' + j.time + ' ' + note + '，重新加载…';
+      setTimeout(function(){ location.reload(); }, 1400);
+    } else {
+      hint.textContent = '✗ 刷新失败：' + String((j && j.out) || '未知错误').slice(0, 120);
+      hint.style.color = '#a02020';
+      btn.textContent = '⟳ 刷新'; btn.disabled = false;
+    }
+  } catch (e) {
+    hint.style.color = '#a02020';
+    hint.textContent = '✗ 连不上本地服务（端口 8765）。先跑 python scripts/serve_board.py，再刷新本页';
+    btn.textContent = '⟳ 刷新'; btn.disabled = false;
+  }
+}
+
+// 打开脚本文件夹：浏览器自己打开 file:// 目录只会显示「网页版文件列表」，
+// 点里面的 .cmd 还是显示源码。所以让服务用 os.startfile 开真正的资源管理器。
+async function openScriptFolder(){
+  var hint = document.getElementById('refreshHint');
+  hint.style.color = ''; hint.textContent = '正在打开文件夹…';
+  try {
+    var r = await fetch(BOARD_API + '/open-folder', {cache: 'no-store'});
+    var j = await r.json();
+    if (j && j.ok) {
+      hint.textContent = '✓ 已用资源管理器打开：' + j.path;
+    } else {
+      hint.textContent = '✗ 打不开：' + String((j && j.out) || '未知错误');
+      hint.style.color = '#a02020';
+    }
+  } catch (e) {
+    hint.style.color = '#a02020';
+    hint.textContent = '✗ 服务没起（本机 8765 端口没响应）。先跑：python scripts/serve_board.py';
+  }
+}
+
+// ── 刷新时检查打勾（2026-11-20）──────────────────────
+// 为什么不自动打勾：实测会错。README 那条明明没做（README 还是 v5.1），
+// 但 WB 的 memory 里到处是「已完成」+ 到处提到 README，机器就判它做完了。
+// 所以只提示「疑似已完成」，由人点「确认完成」才动手。
+function _esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+async function checkSuspects(){
+  var j;
+  try {
+    var r = await fetch(BOARD_API + '/suspects', {cache: 'no-store'});
+    j = await r.json();
+  } catch (e) { return; }
+  if (!j || !j.ok) return;
+
+  /* ★★ 2026-11-21 新增：验收判据那两类（failed / verified）
+     ------------------------------------------------
+     带「验收: 判据」的条目不再靠读 memory 猜：
+       · 判据跑通 → 服务端已自动打勾 → 这里只报「✓ 验收通过」+ 重载
+       · 判据没过 → 报「✗ 验收未通过」+ 是哪一条判据、输出是什么
+     这一段和下面「语义疑似」是两条独立的路，互不影响。 */
+  (function renderAccept(){
+    var groups = {};
+    function add(list, kind){
+      (list || []).forEach(function(s){
+        var o = {}; for (var k in s) o[k] = s[k];
+        o._kind = kind;
+        (groups[s.project] = groups[s.project] || []).push(o);
+      });
+    }
+    add(j.failed, 'failed');
+    add(j.verified, 'verified');
+    if (!Object.keys(groups).length) return;
+
+    Object.keys(groups).forEach(function(proj){
+      var all = groups[proj];
+      var fails = all.filter(function(x){ return x._kind === 'failed'; });
+      var vers  = all.filter(function(x){ return x._kind === 'verified'; });
+      var base  = String(proj).split('@')[0];
+
+      document.querySelectorAll('.card').forEach(function(card){
+        var nm = card.querySelector('.pname');
+        if (!nm) return;
+        var name = nm.textContent.trim();
+        if (name.indexOf(base) < 0 && base.indexOf(base) < 0 && base.indexOf(name) < 0) return;
+        var todo = card.querySelector('.todo');
+        if (!todo) return;
+        if (card.querySelector('.suspect')) return;
+
+        var rows = [];
+        fails.forEach(function(s){
+          rows.push('<div class="sp-item fail">✗ 验收未通过：'
+            + _esc(String(s.text || '').slice(0, 44))
+            + '<span class="sp-det">' + _esc(String(s.detail || '').slice(0, 120)) + '</span></div>');
+        });
+        vers.forEach(function(s){
+          rows.push('<div class="sp-item done">✓ 验收通过'
+            + (s.ticked ? '（已自动打勾）' : '')
+            + '：' + _esc(String(s.text || '').slice(0, 44))
+            + '<span class="sp-det">' + _esc(String(s.criterion || '').slice(0, 100)) + '</span></div>');
+        });
+
+        var head = [];
+        if (fails.length) head.push('验收未通过 ' + fails.length);
+        if (vers.length)  head.push('验收通过 ' + vers.length);
+
+        var bar = document.createElement('div');
+        bar.className = 'suspect';
+        bar.innerHTML = '<div class="sp-head"><span class="sp-ico">' + (fails.length ? '⚠' : '✓') + '</span>'
+          + '<b>' + _esc(head.join('　｜　')) + '</b></div>'
+          + '<div class="sp-list">' + rows.join('') + '</div>'
+          + '<div class="sp-acts">'
+          + (vers.length ? '<button class="sp-reload">重载看结果</button>' : '')
+          + '<button class="sp-no">先不管</button></div>';
+
+        bar.querySelector('.sp-no').addEventListener('click', function(){ bar.remove(); });
+        var rl = bar.querySelector('.sp-reload');
+        if (rl) rl.addEventListener('click', function(){ location.reload(); });
+
+        todo.parentNode.insertBefore(bar, todo);
+      });
+    });
+  })();
+
+  if (!j.suspects || !j.suspects.length) return;
+
+  // ★ 按项目分组：同一项目多条疑似，合成一个提示条 + 一个「全部确认」
+  //   （2026-11-20：实测两条任务都做完了，却要一条条点，太碎）
+  var byProj = {};
+  j.suspects.forEach(function(s){
+    (byProj[s.project] = byProj[s.project] || []).push(s);
+  });
+
+  Object.keys(byProj).forEach(function(proj){
+    var list = byProj[proj];
+    var base = String(proj).split('@')[0];
+
+    document.querySelectorAll('.card').forEach(function(card){
+      var nm = card.querySelector('.pname');
+      if (!nm) return;
+      var name = nm.textContent.trim();
+      if (name.indexOf(base) < 0 && base.indexOf(name) < 0) return;
+      var todo = card.querySelector('.todo');
+      if (!todo) return;
+      if (card.querySelector('.suspect')) return;
+
+      var items = list.map(function(s, i){
+        return '<div class="sp-item" data-i="' + i + '">· ' + _esc(String(s.text || '').slice(0, 54)) + '…</div>';
+      }).join('');
+
+      var bar = document.createElement('div');
+      bar.className = 'suspect';
+      bar.innerHTML = '<div class="sp-head"><span class="sp-ico">⚠</span>'
+        + '<b>疑似已完成 ' + list.length + ' 条</b>　'
+        + '<span class="sp-w">' + _esc(list[0].why || '') + '</span></div>'
+        + '<div class="sp-list">' + items + '</div>'
+        + '<div class="sp-acts">'
+        + '<button class="sp-ok">✓ ' + (list.length > 1 ? '全部确认（' + list.length + '）' : '确认完成') + '</button>'
+        + '<button class="sp-no">先不管</button></div>';
+
+      bar.querySelector('.sp-no').addEventListener('click', function(){
+        bar.remove();
+      });
+
+      bar.querySelector('.sp-ok').addEventListener('click', async function(){
+        var b = this;
+        b.disabled = true;
+        bar.querySelector('.sp-no').disabled = true;
+        var okN = 0, failMsgs = [];
+        for (var i = 0; i < list.length; i++){
+          b.textContent = '打勾中 ' + (i + 1) + '/' + list.length + '…';
+          var row = bar.querySelector('.sp-item[data-i="' + i + '"]');
+          try {
+            var rr = await fetch(BOARD_API + '/tick', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({project: list[i].project, fp: list[i].fp})
+            });
+            var jj = await rr.json();
+            if (jj && jj.ok) {
+              okN++;
+              if (row) { row.classList.add('done'); row.textContent = '✓ ' + row.textContent.slice(2); }
+            } else {
+              failMsgs.push(String((jj && jj.out) || '失败').slice(0, 30));
+              if (row) { row.classList.add('fail'); }
+            }
+          } catch (e) {
+            failMsgs.push('连不上服务');
+            if (row) { row.classList.add('fail'); }
+          }
+        }
+        if (okN === list.length){
+          b.textContent = '全部完成，重新加载…';
+          setTimeout(function(){ location.reload(); }, 800);
+        } else {
+          b.textContent = '打了 ' + okN + '/' + list.length + '，失败：' + failMsgs.join('；').slice(0, 40);
+          b.disabled = false;
+        }
+      });
+
+      todo.parentNode.insertBefore(bar, todo);
+    });
+  });
+}
+
+// 打开页面时先探一下服务，没起就提前告诉你
+pingBoardService();
+// 服务在的话，顺便检查队列里有没有「疑似已完成」
+setTimeout(checkSuspects, 400);
+</script>
+<a href="focus.html" id="toFocus" style="position:fixed;right:20px;bottom:20px;background:#fff;
+  border:1px solid var(--line);border-radius:999px;padding:8px 15px;font-size:12.5px;
+  color:var(--ink-2);text-decoration:none;box-shadow:0 2px 10px rgba(0,0,0,.06);z-index:99">聚焦看板 →</a>
+<script>
+// 在标签页外壳（home.html）里用 iframe 打开时，顶部已经有标签可切 —— 这个浮动按钮多余
+if (window.self !== window.top) {
+  var _tf = document.getElementById('toFocus');
+  if (_tf) _tf.style.display = 'none';
+}
+</script>
+</body>
+</html>

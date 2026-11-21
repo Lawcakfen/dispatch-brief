@@ -855,19 +855,29 @@ def main():
         out_dir = os.path.join(ROOT, "_看板")
         tpl = os.path.join(out_dir, "_template.html")
         if not os.path.exists(tpl):
-            # ★ 2026-11-22：原话是「WB 原始皮肤，别删」—— 对没装过的人来说等于没说
-            print("ERROR: 找不到 %s" % tpl)
-            print()
-            print("  _template.html 是看板的【皮肤】：project_watch.py 只负责把正文塞进去，")
-            print("  长什么样由这个模板决定。发布包里【不自带皮肤】，因为它跟审美强绑定。")
-            print()
-            print("  两条路：")
-            print("    1) 自己放一个：任何 HTML 都行，只要里面有")
-            print('         <script type="text/plain" id="raw-md"></script>')
-            print("       正文会被注入到这块里，其余样式你随便写。")
-            print("    2) 暂时不要皮肤：直接看 %s 的纯文本，" % LOG)
-            print("       或者用 scan_projects.py 的项目总览代替。")
-            return
+            # ★★★ 2026-11-22：包里自带一份默认皮肤（作者的看板，已脱敏）。
+            #   缺皮肤时先拿它顶上 —— 这样「装上就有看板」基本成立，
+            #   而不是让人先去找一个 HTML 才能看到第一眼。
+            pkg_tpl = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   "..", "templates", "board-template.html")
+            if os.path.isfile(pkg_tpl):
+                import shutil as _sh
+                os.makedirs(out_dir, exist_ok=True)
+                _sh.copyfile(pkg_tpl, tpl)
+                print("（没找到皮肤，已用包里的默认皮肤：%s）" % tpl, file=sys.stderr)
+                print("（想改样式/配色，直接改这个文件；它是你的了）", file=sys.stderr)
+            if not os.path.exists(tpl):
+                print("ERROR: 找不到 %s" % tpl)
+                print()
+                print("  _template.html 是看板的【皮肤】：project_watch.py 只负责把正文塞进去，")
+                print("  长什么样由这个模板决定。")
+                print()
+                print("  两条路：")
+                print("    1) 从包里复制一份：templates/board-template.html → <项目根>/_看板/_template.html")
+                print("    2) 自己写一个：任何 HTML 都行，只要里面有")
+                print('         <script type="text/plain" id="raw-md"></script>')
+                print("       正文会被注入到这块里，其余样式你随便写。")
+                return
         html = open(tpl, encoding="utf-8").read()
         pattern = r'(<script type="text/plain" id="raw-md">)[\s\S]*?(</script>)'
         new, n = _re.subn(pattern, lambda m: m.group(1) + md + m.group(2), html, count=1)
