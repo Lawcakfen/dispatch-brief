@@ -1,5 +1,5 @@
 ---
-name: super-agent
+name: dispatch-brief
 description: Use when Hermes 当主 Agent 管执行方（派单 / 盯梢 / 验收 / 看板监管）。
 version: 2.0.0
 tags: [WorkBuddy, Codex, 主Agent, 派单, 验收, 项目监管, 看板]
@@ -231,7 +231,7 @@ pstate.json         快照（每次覆盖，放 stage / next / blocker / criteri
       改内容只改这里
 ```
 
-**★★ 原两个 skill 已改成「指针」（打开会告诉你「已并入 super-agent」），不再维护。**
+**★★ 原两个 skill 已改成「指针」（打开会告诉你「已并入 dispatch-brief」），不再维护。**
 
 
 ### 合并时诚实交代的两件事
