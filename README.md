@@ -80,9 +80,9 @@
              看板与监管 / 坑清单 / 评审与改造 / 发布与同步 / 机制图
              检验标准 / 发布管道
 ② 模板      templates/ 三份（指令骨架 / 礼物页骨架 / 机制图 HTML）
-③ 脚本      scripts/ 里的参考实现（可跑，但按你的目录结构多半要调）
+③ 脚本      scripts/ 里的实现（除判断层要填一个 API key，其余开箱能跑）
 ④ 配置      paths.py + agent-config.example.json
-             ★ 换机器只改两个值，不动任何 .py
+            ★ 只改 projects_root 就能跑；模型/端点/日志目录都有默认值
 ```
 
 ## 装完**不会**自动发生的四件事
@@ -137,6 +137,44 @@
 **约定只需要三行字，而适配是无底洞。**
 
 **★★ 这也是这套方法愿意付的代价：它不假装通用，它把前提写清楚 —— 你照着摆就通，不照就静默失效。**
+
+---
+
+## 判断层：接一个大模型（可选，但看板的「散文」部分靠它）
+
+**「判断层」干一件事：把证据包（文件变动 + 执行方日志 + 待发队列）交给一个大模型，换回一句话 —— 现在到哪 / 下一步 / 卡在哪 / 验收标准 / 阶段。**
+
+**不接会怎样**：看板仍然能用（项目清单、活动时间、待发队列、验收事实都在），但每张卡上没有「现在到哪／建议」那段散文。
+
+### 三步接上
+
+```bash
+# ① 拿一个 key（默认按 DeepSeek 配，因为它便宜、上下文够）
+#   用别家也行：任何 OpenAI 兼容的 /chat/completions 都认
+
+# ② 放 key（三选一）
+#    a. 环境变量：  DEEPSEEK_API_KEY=sk-xxxx
+#    b. 建 .env：  在 scripts/ 下建 .env，写一行 DEEPSEEK_API_KEY=sk-xxxx
+#    c. 配置文件：  agent-config.json 里 "judge_api_key": "sk-xxxx"（不推荐，容易被 git 带上）
+
+# ③ 跑一次，看到「完成：成功 N，失败 0」就成了
+python scripts/judge_lite.py --dry     # 先看要判哪几个项目，不花钱
+python scripts/judge_lite.py --all     # 真判
+```
+
+### 换别家模型
+
+**在 `agent-config.json` 里改三项，不动代码：**
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `judge_api_url` | `https://api.deepseek.com/chat/completions` | 接口地址 |
+| `judge_model` | `deepseek-chat` | 模型名 |
+| `judge_api_key_env` | `DEEPSEEK_API_KEY` | key 放在哪个环境变量里 |
+
+**★ 换 OpenAI 就是填 `https://api.openai.com/v1/chat/completions` + `gpt-4o-mini` + `OPENAI_API_KEY`。本地 ollama 同理。**
+
+**★★ 花钱的地方只有一处：`judge_lite.py`。它只判「有变动」的项目，一天跑一次也就是几次短调用。跑别的东西（看板、扫描、打勾）不花一分钱。**
 
 ---
 
@@ -211,10 +249,13 @@ templates/
 scripts/
   paths.py                 所有路径的唯一来源（换设备只改 agent-config.json）
   queue.py                 队列解析 / 匹配完成信号 / 打勾
-  judge.py                 起一次独立 session 做判断
+  judge_lite.py            判断层：证据包 → 一句话判断（要接大模型，唯一花钱的地方）
+  judge.py                 起一次独立 session 做判断（重版本，可选）
   project_watch.py         项目数据采集 + 看板生成
+  serve_board.py           本地看板服务（刷新按钮 / 打勾接口，只听本机）
   wb_watch.py              主循环：扫日志 + 扫产物 + 心跳 + 打勾 + 触发判断
   scan_projects.py         按项目目录聚合最后活动，输出四档表
+  check_queue.py           队列验收：跑判据命令，决定打不打勾
   audit_memory.py          查 memory 压缩后有没有丢小节
   agent-config.example.json  配置模板
 LICENSE / README.md
