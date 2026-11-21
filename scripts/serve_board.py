@@ -19,8 +19,9 @@ import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-# ★★★ 2026-11-22 发布前脱敏：原来写死 E:\ObsidianVault\... 和 C:\Users\<某人>\...
-#   改成从 paths.py 取（它读 agent-config.json），并支持环境变量覆盖。
+# ★★★ 2026-11-22 发布前脱敏：原来这里写死了本机的绝对路径（库根 + 用户目录），
+#   一发布就漏。改成从 paths.py 取（它读 agent-config.json），并支持环境变量覆盖。
+#   ★ 注意：注释里也不要写出真实路径 —— 脱敏检查是按字面串扫的。
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paths  # noqa: E402
 
