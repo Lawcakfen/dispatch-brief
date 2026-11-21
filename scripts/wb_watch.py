@@ -395,11 +395,15 @@ def main():
         if not cur and not art_cur:
             print("✗ 一个项目都没扫到 —— 基线没建，先配好 projects_root。", file=sys.stderr)
             print("", file=sys.stderr)
+            # ★★★ 不要在这写 import paths（2026-11-22 血案）：
+            #   函数内任何位置出现 import paths，都会让整个函数的 paths 变成【局部变量】，
+            #   于是前面所有 paths.find_queue / paths.memory_dir 全部 UnboundLocalError。
+            #   而这个崩溃只发生在「心跳/盯梢」这条路径上 —— 静态检查全绿、语法全对，只有真跑才炸。
+            #   模块顶部第 34 行已经 import 了，直接用。
             try:
-                import paths
                 print(paths.describe(), file=sys.stderr)
             except Exception as e:
-                print(f"（顺带：连 paths.py 都读不了：{e}）", file=sys.stderr)
+                print(f"（顺带：paths.describe() 也失败了：{e}）", file=sys.stderr)
             sys.exit(1)
         for proj, files in cur.items():
             pst = st.setdefault(proj, {})

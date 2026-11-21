@@ -59,8 +59,42 @@ def scan(root):
                 if m > newest:
                     newest = m
                     newest_rel = os.path.relpath(fp, path)
+        # ★★★ 2026-11-22：把 .agent / .workbuddy 等日志目录排除后，
+        #   「只有日志」「只有队列」的项目会变成 0 个文件而被丢掉
+        #   （沙盒实测：P3只有日志 从项目清单里消失，但它明明是个项目）。
+        #   规则改成：有可数文件 / 有队列文件 / 有日志 → 都算项目；
+        #   活动时间取「可数文件」与「日志」的最大值 —— 队列本身不算活动，
+        #   否则自己往队列写一行，项目就假装「在动」了。
         if not newest:
-            continue
+            cand = []
+            mdir = None
+            try:
+                mdir = _paths.memory_dir(path)
+            except Exception:
+                pass
+            if mdir and os.path.isdir(mdir):
+                for f in os.listdir(mdir):
+                    if f.endswith(".md"):
+                        try:
+                            cand.append(os.path.getmtime(os.path.join(mdir, f)))
+                        except OSError:
+                            pass
+            has_q = False
+            try:
+                has_q = os.path.isfile(_paths.find_queue(path))
+            except Exception:
+                has_q = False
+            if cand:
+                newest = max(cand)
+                newest_rel = "（只有日志，无产出文件）"
+            elif has_q:
+                try:
+                    newest = os.path.getmtime(_paths.find_queue(path))
+                except OSError:
+                    newest = os.path.getmtime(path)
+                newest_rel = "（只有队列，还没开工）"
+            else:
+                continue
         t = datetime.datetime.fromtimestamp(newest)
         rows.append({
             "project": name,
