@@ -89,9 +89,11 @@ def memory_dir(proj_dir):
 def memory_dir_others(proj_dir):
     """同一项目里【另外也存在】的日志目录 —— 用来提示「有两处，只用了一处」。
 
-    ★ 这个提示是必须的：用 WorkBuddy 的人，产品自己会往 .workbuddy/memory 写，
-      而他又照新约定往 .agent/memory 写 → 两处都有 → 只读一处就静默丢一半日志。
-      所以不能装看不见，要把「另一处被忽略了」说出来。
+    ★ 什么情况下会两处都有：从早期版本升上来的人（早期约定是 .workbuddy/memory），
+      新项目又按 .agent/memory 建了 → 同一个项目里两处都在。
+      ★ 更正：之前这里写「WorkBuddy 产品自己会往 .workbuddy/memory 写」—— 那是错的。
+        那个目录是我们自己的指令让它写的，不是产品默认行为。所以新用户不会碰上两处。
+      只读一处会静默丢一半日志，所以要把「另一处被忽略」说出来。
     """
     cfg = _memory_cfg()
     if cfg:
