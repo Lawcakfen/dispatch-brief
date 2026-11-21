@@ -832,7 +832,18 @@ def main():
     if "--board" in sys.argv:
         import re as _re
         if not os.path.exists(LOG):
-            print("ERROR: 找不到 _进度总表.md")
+            # ★ 2026-11-22：原来只打一句 ERROR 就 return，新用户不知道下一步该干嘛
+            print("ERROR: 找不到 %s" % LOG)
+            print()
+            print("  _进度总表.md 是看板的正文来源，第一次用需要先建它。")
+            print("  最小骨架（复制到 %s 即可）：" % LOG)
+            print("    # 进度总表")
+            print("    ")
+            print("    ## <项目名>")
+            print("    - **现在到哪**：<一句话>")
+            print("    - **建议**：<下一步动作>")
+            print()
+            print("  之后每跑一次 judge / project_watch，都会往这里追加或更新。")
             return
         md = open(LOG, encoding="utf-8").read()
         # 去掉旧的「给WB 待发」段，避免重复累积
@@ -844,7 +855,18 @@ def main():
         out_dir = os.path.join(ROOT, "_看板")
         tpl = os.path.join(out_dir, "_template.html")
         if not os.path.exists(tpl):
-            print("ERROR: 找不到 _看板/_template.html（WB 原始皮肤，别删）")
+            # ★ 2026-11-22：原话是「WB 原始皮肤，别删」—— 对没装过的人来说等于没说
+            print("ERROR: 找不到 %s" % tpl)
+            print()
+            print("  _template.html 是看板的【皮肤】：project_watch.py 只负责把正文塞进去，")
+            print("  长什么样由这个模板决定。发布包里【不自带皮肤】，因为它跟审美强绑定。")
+            print()
+            print("  两条路：")
+            print("    1) 自己放一个：任何 HTML 都行，只要里面有")
+            print('         <script type="text/plain" id="raw-md"></script>')
+            print("       正文会被注入到这块里，其余样式你随便写。")
+            print("    2) 暂时不要皮肤：直接看 %s 的纯文本，" % LOG)
+            print("       或者用 scan_projects.py 的项目总览代替。")
             return
         html = open(tpl, encoding="utf-8").read()
         pattern = r'(<script type="text/plain" id="raw-md">)[\s\S]*?(</script>)'
