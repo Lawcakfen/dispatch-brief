@@ -13,6 +13,18 @@
   "_memory_dir": "执行方日志目录（相对项目根）。留空 = 自动按顺序找：.agent/memory → .workbuddy/memory → .codex/memory → .claude/memory → memory。★ 对外约定用 .agent/memory；老的 .workbuddy/memory 会一直被兜底。",
   "memory_dir": "",
 
+  "_judge": "★ 判断层（judge_lite.py）用的大模型。不填就用下面注释里的默认值（DeepSeek）。任何 OpenAI 兼容的 /chat/completions 接口都能用。",
+  "_judge_api_url": "接口地址。默认 https://api.deepseek.com/chat/completions",
+  "judge_api_url": "",
+  "_judge_model": "模型名。默认 deepseek-chat",
+  "judge_model": "",
+  "_judge_api_key_env": "key 放哪个环境变量里。默认 DEEPSEEK_API_KEY；用 OpenAI 就填 OPENAI_API_KEY",
+  "judge_api_key_env": "",
+  "_judge_api_key": "不推荐直接把 key 写这里（会被 git 带上）。优先用环境变量，或在 scripts/ 下建 .env 文件",
+  "judge_api_key": "",
+  "_env_file": "自定义 .env 文件路径（可选）。不填会依次找：%LOCALAPPDATA%/hermes/.env、scripts/.env",
+  "env_file": "",
+
   "_client_projects": "客户项目名（子串匹配），会单独标成「客户项目」。没有就留空。",
   "client_projects": [],
 

@@ -104,6 +104,18 @@ def memory_dir_others(proj_dir):
             and os.path.normpath(os.path.join(proj_dir, *rel.split("/"))) != chosen]
 
 
+def conf(key, default=""):
+    """读 agent-config.json 里的任意字段（没配 / 空串 → 返回默认值）。
+
+    ★ 给「需要用户自己填的东西」用的通用读法：模型名、API 地址、key 所在的环境变量名。
+      配了就用配的，没配就用默认 —— 这样默认能开箱跑，又不锁死在某一家。
+    """
+    v = _cfg.get(key)
+    if v is None or (isinstance(v, str) and not v.strip()):
+        return default
+    return v
+
+
 def _looks_like_projects(p):
     """判断一个目录是不是「项目根」：它下面某个子目录里有队列文件。"""
     try:
