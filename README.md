@@ -1,8 +1,13 @@
 # super-agent-brief-writing
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![Files: 18](https://img.shields.io/badge/Files-18-blue.svg)
 ![对接方式: 人工](https://img.shields.io/badge/%E5%AF%B9%E6%8E%A5%E6%96%B9%E5%BC%8F-%E4%BA%BA%E5%B7%A5-lightgrey.svg)
+
+> **v2.0（2026-11-21）：合并了两个原本分开的 skill。**
+> 以前分成「怎么派活」和「怎么看全局」两份，分开放必然不同步 ——
+> 同一个坑两边各写一遍，改一处忘另一处。
+> 现在是一份主干 + 分块 references：主干讲一圈活怎么走，细节分 9 份。
+> **★ 另外删掉了原来那个「Files: 18」的角标 —— 文件数会变，写死就会撒谎。**
 
 **这是一个 Agent skill 包**，记录「执行方只能人工对接时，主 Agent 怎么管住它」这套分工方法。
 它解决的是那种「每一步都得你亲自盯」的窘境。
@@ -100,7 +105,7 @@ cp -r super-agent-brief-writing ~/.hermes/skills/
 
 ### 3. 只想先看看值不值
 
-**读 `references/brief-skeleton.md`（5 页）。** 五条铁律 + 八节骨架 + 三类产物 ——
+**读 `references/01-派单与指令.md`（5 页）。** 五条铁律 + 八节骨架 + 三类产物 ——
 那是写指令的核心，不需要装任何东西，也不需要 Agent。
 
 ### 4. 想让脚本跑起来（自动盯梢 + 自动验收）
@@ -150,7 +155,7 @@ python wb_watch.py            # 手动跑一次，静默就是正常
 
 **★★ 最贵的一条经验，是「执行方会自己把队列打了勾」** —— 它把队列当任务清单，做完顺手打勾，
 于是监听脚本永远看不到「待发」，自动验收一次都没跑过。
-**我误判了两天才发现。**（详见 `references/automation.md`）
+**我误判了两天才发现。**（详见 `references/02-盯梢与自动化.md`）
 
 ---
 
@@ -160,7 +165,7 @@ python wb_watch.py            # 手动跑一次，静默就是正常
 
 ### 第 0 层：只读方法（零前置）
 
-读 `references/brief-skeleton.md`。不需要装任何东西，不需要 Agent。
+读 `references/01-派单与指令.md`。不需要装任何东西，不需要 Agent。
 
 ### 第 1 层：让 Agent 帮你写指令（1 个前置）
 
@@ -234,7 +239,7 @@ python wb_watch.py            # 手动跑一次，静默就是正常
 ### 建议的最小验证路径（别一上来装全套）
 
 ```
-第 1 天　只读 references/brief-skeleton.md，手写一份指令 → 看比平时好用多少
+第 1 天　只读 references/01-派单与指令.md，手写一份指令 → 看比平时好用多少
 第 2 天　拷 skill 进 Agent，让它帮你写指令 → 省 20 分钟
 第 3 天　建队列四段 + 日志目录（手写，不自动）
 第 4 天　上扫描脚本（只做「完成时报警」，不做判断）
@@ -248,44 +253,51 @@ python wb_watch.py            # 手动跑一次，静默就是正常
 ## 文件结构
 
 ```
-SKILL.md                           402 行　主文件（触发 + 硬规矩 + 常见坑）
+SKILL.md                 主干：一圈六步 + 20 条硬判据 + 三档派单 + 导航
+                          ★ 刻意不写长 —— 它只负责让你知道该翻哪一份
 references/
-  ├── acceptance-standards.md          **开项目第一件事：分阶段验收标准库**
-  ├── acceptance.md                    验收五动作 + 三类「全过了但用户用不了」
-  ├── auto-acceptance-judge.md         judge 的完整实现（prompt 全文 / 锁 / 成本）
-  ├── automation.md                    心跳 / 队列分段 / 外部改队列检测 / 语义缺口 / **产物监控**
-  ├── brief-skeleton.md                五条铁律 + 八节骨架 + 三类产物 + **七轮实测配比**
-  ├── flow-diagram.md                  把这套机制画成图
-  ├── intake-triage.md                 **接一批改造需求时怎么归因分批**
-  ├── publishing-status.md             发布进度（内部账本，可删）
-  └── refactor-existing.md             改造已有代码（最长的一份）
+  ├── 01-派单与指令.md      五条铁律 / 八节骨架 / 投递形态（全文 vs 指针）/ 归因分批
+  ├── 02-盯梢与自动化.md    心跳 / 队列分段 / 外部改队列检测 / judge 完整实现与 prompt
+  ├── 03-验收.md           五个固定动作 / 日期逻辑专项（拨 TODAY）/ 验收标准库
+  ├── 04-打勾与队列.md      队列格式 / 完成信号 / 为什么 match_done 只能当怀疑 / 验收判据
+  ├── 05-看板与监管.md      项目卡片 / 判断 / 异常区 / 状态字段 / 两个时间 / 刷新链路
+  ├── 06-坑清单.md         71 条实测坑（两份去重后）
+  ├── 07-评审与改造.md      改造已有代码 / 评审执行方的重构计划
+  ├── 08-发布与同步.md      一致性检查 / 公私两份怎么不打架
+  └── 09-机制图.md         把这套机制画成图
 templates/
-  ├── gift-webpage-brief.md            单文件礼物页的指令骨架
-  ├── instruction.md                   指令模板：**必带的三句话** + 八节骨架
-  └── mechanism-diagram.html           机制可视化单文件（顶部有「怎么用这个模板」）
+  ├── gift-webpage-brief.md   单文件礼物页的指令骨架
+  ├── instruction.md          指令模板：必带的三句话 + 八节骨架
+  └── mechanism-diagram.html  机制可视化单文件
 scripts/
-  ├── agent-config.example.json        配置模板，复制成 agent-config.json 再改
-  ├── judge.py                         起一次独立 session 做三段判断
-  ├── paths.py                         **所有路径的唯一来源**（换设备只改 agent-config.json）
-  ├── project_watch.py                 每日全量汇报的数据采集（可选）
-  ├── queue.py                         队列解析 / 匹配完成信号 / 打勾
-  └── wb_watch.py                      **主循环**：扫日志 + 扫产物 + 心跳 + 打勾 + 触发判断
-docs/preview.png                   预览图
+  ├── agent-config.example.json  配置模板，复制成 agent-config.json 再改
+  ├── paths.py                   **所有路径的唯一来源**（换设备只改 agent-config.json）
+  ├── queue.py                   队列解析 / 匹配完成信号 / 打勾
+  ├── judge.py                   起一次独立 session 做三段判断
+  ├── project_watch.py           每日全量汇报的数据采集
+  └── wb_watch.py                主循环：扫日志 + 扫产物 + 心跳 + 打勾 + 触发判断
+docs/preview.png               预览图
 ```
+
+**★ 主干和 references 的分工：主干讲「这一圈走到第几步、该翻哪份」，references 讲细节。
+主干超过 400 行，就说明它在偷偷干 references 的活。**
 
 ---
 
 ## 已知限制
 
 ```
-① ★★★ 完整链路在作者本机只跑通 1 次。
-   之前它失明了整整两天（原因见「核心概念」第三条）。
-   所以：把它当【踩坑记录】读，不是当【生产级方案】抄。
+① ★★★ 只在一个环境验证过。
+   完整链路在本机日常跑了约一周（每日 06:20 全量 + 手动刷新按需），
+   不是「只跑通一次」了 —— 但**只在一个执行方、一个目录结构下跑过**。
+   换个执行方（Codex / Cursor / 另一个 Agent）需要重新测一遍，
+   因为「它会不会照做」「它怎么写日志」这两件事因 Agent 而异。
 
-② 不含实现代码。
-   references 里讲的是机制和 prompt，没有随包发布可跑的脚本。
-   你需要自己实现三个东西：队列解析器 / 心跳扫描器 / 判断触发器。
-   三份加起来约 400 行 Python，references/auto-acceptance-judge.md 里有完整 prompt。
+② `scripts/` 里有一份可跑的参考实现。
+   队列解析（queue.py）/ 心跳与打勾（wb_watch.py）/ 判断（judge.py）/
+   数据采集（project_watch.py）/ 路径收敛（paths.py）。
+   **路径不写死**：换设备只改 `agent-config.json` 两个值，不动任何 .py。
+   但它是作者环境的形态，你多半要按自己的目录结构调。`references/02` 里有完整的 prompt。
 
 ③ 只适用于「执行方只能人工对接」的环境。
    每 5 分钟轮询、人肉粘贴、让执行方写日志当汇报 ——
