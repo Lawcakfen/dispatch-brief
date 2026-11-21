@@ -76,7 +76,12 @@ def _detect_projects_root():
             if parent == cur:
                 break
             cur = parent
-    return os.path.join(os.getcwd(), "projects")
+    # ★★★ 找不到就【返回空】，绝不瞎猜一个路径（2026-11-21 修）
+    #   原来这里是 return os.path.join(os.getcwd(), "projects") ——
+    #   那个目录几乎永远不存在，于是下游会报「目录不存在: C:\...\scripts\projects」，
+    #   读者以为是自己目录结构不对，其实是压根没填 projects_root。
+    #   返回空之后，下游才能说清「你还没配」，而不是让它去猜。
+    return ""
 
 
 _cfg = _read_cfg()

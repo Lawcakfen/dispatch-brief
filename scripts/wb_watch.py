@@ -382,6 +382,19 @@ def main():
 
     # ---- ⓪ --init 只建基线：不碰心跳标记、不产生任何事件 ----
     if init:
+        # ★★★ 一个都没扫到就【不许说成功】（2026-11-21 修）
+        #   原来无论扫到 0 个还是 20 个，都打印「基线已建」并退出 0。
+        #   于是 projects_root 没配的人会以为装好了，然后永远等不到事件，
+        #   最后得出「这东西没用」——静默成功是这里最糟的失败方式。
+        if not cur and not art_cur:
+            print("✗ 一个项目都没扫到 —— 基线没建，先配好 projects_root。", file=sys.stderr)
+            print("", file=sys.stderr)
+            try:
+                import paths
+                print(paths.describe(), file=sys.stderr)
+            except Exception as e:
+                print(f"（顺带：连 paths.py 都读不了：{e}）", file=sys.stderr)
+            sys.exit(1)
         for proj, files in cur.items():
             pst = st.setdefault(proj, {})
             for fname, info in files.items():

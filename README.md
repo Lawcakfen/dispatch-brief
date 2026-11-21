@@ -125,11 +125,18 @@
 ### 第 2 层：手工扮演执行方，验证机制（★ 性价比最高，也最容易被跳过）
 
 ```bash
-# 把 scripts/agent-config.example.json 另存为同目录的 agent-config.json
-# 改两个值：hermes_home、projects_root
+# ① 先自查：没配的话，它会直接告诉你差哪一步
+python scripts/paths.py
 
-python scripts/scan_projects.py            # 能扫出项目就算通了
+# ② 按提示配：把 scripts/agent-config.example.json 另存为同目录的 agent-config.json
+#    只改 projects_root（必填），hermes_home 可留空自动探测
+
+# ③ 再自查一次，看到「项目根可用  是」就配好了
+python scripts/paths.py
+
+python scripts/scan_projects.py            # 能列出你的项目就算通了
 python scripts/wb_watch.py --init          # 建基线
+#   ★ 一个项目都没扫到会直接报错退出 —— 不会假成功
 
 echo "## 10:30 我要做：改标题" >> <日志目录>/<今天>.md    # 模拟「它动了」
 # 等一轮 → 应报「▶ 动了」

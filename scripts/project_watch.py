@@ -25,6 +25,76 @@ import paths                      # ★ 所有路径与项目分类的唯一来�
 ROOT = paths.PROJECTS_ROOT
 LOG = os.path.join(ROOT, "_进度总表.md")
 STATE = os.path.join(paths.CACHE_DIR, "project_watch_state.json")
+# ★ 每个项目的「判断写于什么时候」（2026-11-20 加）
+#   总表里只存判断文字，不存写入时间。没有这个，看板就分不清
+#   「这条判断是刚刚写的」还是「三天前写的」。
+JUDGE_TIMES = os.path.join(ROOT, "_看板", "judge_times.json")
+
+# ★★★ 项目状态字段（2026-11-21 · 设计 2）
+#   存在一个 json 侧车里，不进 _进度总表.md —— 总表是【日志】(只追加)，
+#   这里是【当前快照】(每次覆盖)。两者用途不同，合在一起会互相破坏。
+#   字段固定：stage / next / blocker / criterion / note
+PSTATE = os.path.join(ROOT, "_看板", "pstate.json")
+STAGES = ("未开始", "开发中", "待验收", "已完成", "暂停")
+
+
+def load_pstate():
+    try:
+        if os.path.exists(PSTATE):
+            with open(PSTATE, encoding="utf-8") as f:
+                d = json.load(f)
+            return d if isinstance(d, dict) else {}
+    except Exception:
+        pass
+    return {}
+
+
+def save_pstate(d):
+    try:
+        os.makedirs(os.path.dirname(PSTATE), exist_ok=True)
+        tmp = PSTATE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=1)
+        os.replace(tmp, PSTATE)
+        return True
+    except Exception:
+        return False
+
+
+def set_pstate(name, fields):
+    """写一个项目的状态字段。★ stage 必须在枚举里，否则整个不写（不猜）。"""
+    stage = (fields.get("stage") or "").strip()
+    if stage not in STAGES:
+        return False, "stage 不在允许取值内：%r（允许：%s）" % (stage, " / ".join(STAGES))
+    d = load_pstate()
+    rec = {
+        "stage": stage,
+        "next": (fields.get("next") or "无").strip()[:90],
+        "blocker": (fields.get("blocker") or "无").strip()[:60],
+        # ★ 160 不是 80：实测 80 会把判据断在半句（「…可点击、不出现」后面没了），
+        #   断句的判据比没有更糟 —— 看着像结论，其实是残句。
+        "criterion": (fields.get("criterion") or "无").strip()[:160],
+        "note": (fields.get("note") or "").strip()[:120],
+        "at": datetime.datetime.now().strftime("%m-%d %H:%M"),
+    }
+    d[name] = rec
+    save_pstate(d)
+    return True, rec
+
+
+def _record_judge_time(name):
+    """记下这个名字的判断写入时间（set_one 调用，所以 cron 和刷新按钮都会自动记）"""
+    try:
+        d = {}
+        if os.path.exists(JUDGE_TIMES):
+            with open(JUDGE_TIMES, encoding="utf-8") as f:
+                d = json.load(f)
+        d[name] = datetime.datetime.now().strftime("%m-%d %H:%M")
+        os.makedirs(os.path.dirname(JUDGE_TIMES), exist_ok=True)
+        with open(JUDGE_TIMES, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=1)
+    except Exception:
+        pass
 
 # ★ 项目分类从 agent-config.json 读 —— 原来写死在这里，含客户名，无法发布
 #   见 paths.py 顶部的说明
@@ -38,6 +108,10 @@ PROGRESS_KEYS = ("版本记录", "进度", "readme", "工作记录", "进展", "
 #   大概率是它里面有个克隆下来的工程或构建目录 —— 把目录名加到这里。
 IGNORE_DIRS = {"dist", "build", ".cache", "vendor", ".next", ".nuxt", "coverage"}
 SKIP_DIRS = {".workbuddy", "node_modules", ".git", "Temp", "__pycache__"} | IGNORE_DIRS
+# ★ 预览/截图缓存目录（2026-11-20 加）
+#   实测：内容看板@WorkBuddy 下有个 .reviewpro，里面有 327 个缓存文件天天变，
+#   把「最近变动」全占了，看板上显示「共 327 个」，掩盖了真正改动的源文件。
+SKIP_DIR_PREFIXES = (".reviewpro", "reviewpro", "_reviewpro")
 # ★ 队列文件名（含兼容别名）：扫描时一律排除，避免我自己的写入污染「最近改动」
 QUEUE_NAME = "_给WB.md"
 QUEUE_ALIASES = {"_给WB.md", "_给执行Agent.md", "_给wb.md"}
@@ -75,9 +149,23 @@ def read_tail(path, maxchars=420):
 
 
 def condense(txt, maxchars=1800):
-    """把 WB 报告压缩成「小节标题 + 每节首句」，丢掉表格正文/代码块/长列表。
-    9725 字的报告能压到 1500 字左右，但所有「做了什么」都还在。"""
-    out, in_code = [], False
+    """把 WB 报告压成骨架。
+
+    ★★ 2026-11-20 修：原来是从头硬截 `s[:maxchars]`，长报告后面的小节会整段消失。
+       实际踩到的：11-20 的 memory 里 B3/B4/B5 都有交付回报，但压缩后只剩到 B2 ——
+       于是判断写出「B3 尚未接入 render」，而事实是 B3/B4/B5 前一天凌晨就交付了。
+       进度全在**小节标题**里，标题丢了判断就错，所以这里改成：
+       ① 按 ## 分节 ② 优先保全部标题 ③ 剩余预算按 3行/2行/1行/0行 逐档降级
+       ④ 实在连标题都放不下才硬截（并明说被截了）
+    """
+    sections = []            # [(标题, [正文行...])]
+    cur_title, cur_lines = None, []
+    in_code = False
+
+    def flush():
+        if cur_title is not None:
+            sections.append((cur_title, cur_lines[:]))
+
     for raw in txt.split("\n"):
         s = raw.strip()
         if not s:
@@ -87,26 +175,50 @@ def condense(txt, maxchars=1800):
             continue
         if in_code:
             continue
-        if s.startswith("|"):          # 表格行（logo 直链那种）——判断进度用不上
+        if s.startswith("|"):          # 表格行，判断进度用不上
             continue
-        if s.startswith("#"):          # 标题全留
-            out.append(s)
+        if s.startswith("## "):
+            flush()
+            cur_title, cur_lines = s, []
             continue
-        if s.startswith(("- ", "* ")):  # 列表项取前 46 字
-            out.append("- " + s[2:][:46])
+        if s.startswith("#") and cur_title is None:
+            cur_title, cur_lines = s, []
             continue
-        out.append(s[:66])              # 普通段落取前 66 字
-    s = "\n".join(out)
-    if len(s) > maxchars:
-        s = s[:maxchars] + "\n…（已压缩，原文更长）"
-    return s
+        if cur_title is None:
+            cur_title = "（开头）"
+        if s.startswith(("- ", "* ")):
+            cur_lines.append("- " + s[2:][:46])
+        else:
+            cur_lines.append(s[:66])
+    flush()
+
+    if not sections:
+        return txt[:maxchars]
+
+    # 逐档降级：先试「标题 + 每节 3 行」，不行再 2 / 1 / 0 行
+    for keep in (3, 2, 1, 0):
+        out = []
+        for t, ls in sections:
+            out.append(t)
+            if keep:
+                out.extend(ls[:keep])
+        body = "\n".join(out)
+        if len(body) <= maxchars:
+            return body
+
+    # 连标题都放不下 —— 硬截，但明确标注，别让人以为读全了
+    body = "\n".join(t for t, _ in sections)
+    if len(body) > maxchars:
+        body = body[:maxchars] + "\n…（★ 标题超预算已截断，后面还有 %d 节没读到）" % len(sections)
+    return body
 
 
-def wb_memory(proj_dir, maxchars=2400):
+def wb_memory(proj_dir, maxchars=9000):
     """读 WorkBuddy 自己写的工作日志（项目内 .workbuddy/memory/<日期>.md）。
     ★ 这是「意图层」信息：为什么改、改到哪、等谁确认 —— 比文件 mtime 信息量大得多。
     ★ 读最近 **2 天**（不是只读最新一份），避免跨天遗漏。
-    ★ 长报告会被 condense() 压缩成骨架，避免只读前几百字漏掉后面大半。"""
+    ★ 长报告会被 condense() 压缩成骨架 —— 现在保证【所有小节标题】都在，
+      预算从 2400 提到 9000（每份 4500），因为进度全在标题里，标题丢了判断就会错。"""
     mdir = os.path.join(proj_dir, ".workbuddy", "memory")
     if not os.path.isdir(mdir):
         return ""
@@ -136,6 +248,42 @@ def wb_memory(proj_dir, maxchars=2400):
     return "\n\n".join(parts)
 
 
+def queue_pending(proj_dir, max_items=4):
+    """读该项目 _给WB.md 的「⏳ 待发」，返回缩略清单。
+
+    ★ 2026-11-20 加：判断一直看不到队列，所以它只会说「项目状态如何」，
+      永远不会说「你还有 N 条活没干」。实际踩到的：内容看板队列挂着两条
+      （未归位角度 / README 重写），但「建议」给的是「跑一次 selfcheck」——
+      因为 judge 根本不知道队列存在。
+
+    只提供事实，不要求派单 —— 派单和判断仍然是两件事。
+    自己用正则解析，不 import queue.py（会跟标准库 queue 撞名）。
+    """
+    qf = os.path.join(proj_dir, "_给WB.md")
+    if not os.path.isfile(qf):
+        return None
+    try:
+        txt = open(qf, encoding="utf-8", errors="ignore").read()
+    except Exception:
+        return None
+    m = re.search(r"##\s*⏳\s*待发([\s\S]*?)(?=\n##\s|\Z)", txt)
+    if not m:
+        return "0 条（没有「⏳ 待发」段）"
+    items = []
+    for ln in m.group(1).split("\n"):
+        st = ln.strip()
+        if not st.startswith("- [ ]"):
+            continue
+        t = st[5:].strip()
+        t = re.sub(r"^\*\*[\d\-]+\*\*\s*", "", t).replace("**", "")
+        t = re.sub(r"\s+", " ", t).strip()
+        items.append(t[:54])
+    if not items:
+        return "0 条（已全部打勾完毕 —— ★ 不要再建议「去打勾收尾」，已经打过了）"
+    more = "" if len(items) <= max_items else "（还有 %d 条）" % (len(items) - max_items)
+    return "%d 条：%s%s" % (len(items), " ／ ".join(items[:max_items]), more)
+
+
 def _skip_dir(name):
     """目录是否该跳过。
 
@@ -144,6 +292,8 @@ def _skip_dir(name):
     """
     n = (name or "").lower()
     if name in SKIP_DIRS or n in SKIP_DIRS:
+        return True
+    if any(n.startswith(p) for p in SKIP_DIR_PREFIXES):
         return True
     if n.startswith("_edge_profile") or n.startswith("edge_profile"):
         return True
@@ -284,6 +434,13 @@ def evidence(only=None):
                 blocks.append("- 今日有改动（基线为今日新建，无文件级差异可比）")
 
         blocks.append(f"- 最近改动的文件：{recent_s}")
+        # ★ 2026-11-21 加：防止把「派单文件」误当成「执行成果」
+        #   实际踩到的：空本子项目里 Hermes 刚写完 `WB指令-空本子v1.1三件.md`，
+        #   判断就写成「已产出 WB指令文件」，看起来像有进展 —— 其实一个字活都没干。
+        if any("WB指令" in os.path.basename(f) for f in list(info.get("files") or {})[:40]):
+            blocks.append("- ★ **注意**：上面出现的 `WB指令-*.md` 是**派单文件**（由泽哥或 Hermes 写的执行说明书），"
+                          "**不是 WorkBuddy 的产出**。看到它只能说明「活派出去了」，不能说明「活干完了」。"
+                          "判断进度只能看 WorkBuddy 的 memory 和实际产物文件。")
 
         for rel, tail in list((info.get("progress") or {}).items())[:2]:
             t = re.sub(r"\s+", " ", tail)[-360:]
@@ -297,6 +454,21 @@ def evidence(only=None):
         else:
             blocks.append("- ⚠️ 该项目没有 WorkBuddy 工作日志（.workbuddy/memory 无日期文件）——"
                           "「现在到哪了」只能靠文件变动推断，判断要保守")
+
+        # ★★ 队列待发（2026-11-20 加）：让判断知道「还有哪些活没干」
+        qp = queue_pending(os.path.join(ROOT, name))
+        if qp is not None:
+            blocks.append(f"- **队列待发（`_给WB.md` 的「⏳ 待发」）**：{qp}")
+            blocks.append(
+                "  > ★ 写「建议」时的三条规则：\n"
+                "  > ① **先对照下面 memory 的最后几个小节**：如果某条待发已经在 memory 里"
+                "写了「已完成/已交付/已重写」，说明它**做完了只是没打勾** —— 建议要写"
+                "「先确认打勾，不要重做」，绝对不能建议重做一遍。\n"
+                "  > ② 队列里确实还没做的 → 建议指向第一条没做的那条，说清是哪一条。\n"
+                "  > ③ 队列全空 → 才建议「验收/确认/收尾」类动作。\n"
+                "  > ★ 队列和判断是两套数据，队列不会自动打勾，所以「挂着」不等于「没做」。")
+        else:
+            blocks.append("- 队列待发：该项目没有 `_给WB.md`（无派单队列）")
 
         hist = recent_log(name)
         if hist:
@@ -395,6 +567,7 @@ def set_one(name, now_txt, advice_txt):
         action = "替换"
 
     open(LOG, "w", encoding="utf-8").write("\n".join(lines))
+    _record_judge_time(name)
     return f"{action}：{name}"
 
 
@@ -538,6 +711,62 @@ def _arg(flag, default=""):
     return default
 
 
+def compute_anomalies(scan_result, judge_times, now=None):
+    """算出「能纯脚本判定」的三种异常，返回 [(优先级, 项目名, 说明)]。
+
+    ★ 2026-11-21 从 --board 的渲染代码里抽出来 —— 埋在 main() 里就没法单独测，
+      而「无异常」和「停滞」这两个分支最容易写错：
+      条件写反了不报错，只是永远不响，或者永远响。
+
+    三种：
+      1 停滞 >14 天，但队列还挂着活   ← 有活、没人做
+      2 队列挂了 >72 小时没动          ← 派下去了，没回音
+      3 判断 >26 小时没更新            ← 话是旧的
+
+    ★ 共同前提：只有【队列里还有待发】的项目才判定。
+      没有待发的项目不算异常 —— 那是「没在办」，不是「出问题」。
+      进异常区只会变成噪音，而噪音会让人不再看异常区。
+    """
+    now = now or datetime.datetime.now()
+    out = []
+    for name, info in (scan_result or {}).items():
+        qf = os.path.join(ROOT, name, "_给WB.md")
+        pend, q_age_h = 0, None
+        if os.path.isfile(qf):
+            try:
+                with open(qf, encoding="utf-8", errors="ignore") as f:
+                    qt = f.read()
+                m = re.search(r"^##\s*⏳?\s*待发(.*?)(?=^##\s|\Z)", qt, re.S | re.M)
+                if m:
+                    pend = len(re.findall(r"^- \[ \]", m.group(1), re.M))
+                q_age_h = (now.timestamp() - os.path.getmtime(qf)) / 3600.0
+            except Exception:
+                pass
+        if not pend:
+            continue
+
+        idle_d = (now.timestamp() - info["mtime"]) / 86400.0
+        if idle_d > 14:
+            out.append((1, name, "停滞 %d 天，队列还挂着 %d 条" % (int(idle_d), pend)))
+        elif q_age_h is not None and q_age_h > 72:
+            out.append((2, name, "队列挂 %d 条，%d 天没动" % (pend, int(q_age_h // 24))))
+
+        js = (judge_times or {}).get(name, "")
+        if js:
+            try:
+                dt = datetime.datetime.strptime(js, "%m-%d %H:%M").replace(year=now.year)
+                if dt > now:
+                    dt = dt.replace(year=now.year - 1)
+                age_h = (now - dt).total_seconds() / 3600.0
+                if age_h > 26:
+                    out.append((3, name, "判断 %d 小时没更新" % int(age_h)))
+            except Exception:
+                pass
+
+    out.sort(key=lambda x: (x[0], x[1]))
+    return out
+
+
 def main():
     # ★ 按项目刷新（第一步）：只输出一个项目的证据包，不碰其他项目
     if "--only" in sys.argv:
@@ -550,6 +779,26 @@ def main():
         return
 
     # ★ 按项目刷新（第二步）：只改最新汇报段里那一行，然后顺手刷看板
+    if "--pstate" in sys.argv:
+        # ★ 2026-11-21 新增：写项目状态字段（judge_lite 调这个，保证只有一个写入者）
+        _n = _arg("--pstate").strip()
+        if not _n:
+            print("用法：python project_watch.py --pstate \"项目名\" --stage 开发中 "
+                  "--next \"…\" --blocker \"…\" --criterion \"…\"")
+            return
+        _ok, _r = set_pstate(_n, {
+            "stage": _arg("--stage"),
+            "next": _arg("--next"),
+            "blocker": _arg("--blocker"),
+            "criterion": _arg("--criterion"),
+            "note": _arg("--note"),
+        })
+        if not _ok:
+            print("ERROR " + str(_r))
+            return
+        print("pstate ← %s ｜ %s" % (_n, _r.get("stage")))
+        return
+
     if "--set" in sys.argv:
         name, now_t, adv = _arg("--set").strip(), _arg("--now"), _arg("--advice")
         if not name:
@@ -601,22 +850,186 @@ def main():
         if n != 1:
             print("ERROR: 模板里找不到 raw-md 块，未生成")
             return
-        # ★ 数据更新时间徽章：按 _进度总表.md 的 mtime 算，超过 26 小时标红
-        mt = datetime.datetime.fromtimestamp(os.path.getmtime(LOG))
-        age_h = (datetime.datetime.now() - mt).total_seconds() / 3600
+        # ★ 数据更新时间徽章（2026-11-20 改）
+        #   两个时间分开：页面什么时候生成的 / 判断什么时候写的。
+        #   因为刷新按钮只重新渲染，不会重新判断 —— 混成一个数会让人以为判断也更新了。
+        # ★ 判断写于 = judge_times.json 里最新的一条
+        #   不能用 _进度总表.md 的 mtime —— 那个文件只要有人手工改一行
+        #   （比如把「停滞7天」改成「已结束」），时间就跳到当前，徽章会说谎。
+        mt = None
+        try:
+          if os.path.exists(JUDGE_TIMES):
+              with open(JUDGE_TIMES, encoding="utf-8") as _f:
+                  _jt_all = json.load(_f)
+              if _jt_all:
+                  # ★ 历史数据里格式混过（有的带年有的不带），先统一再去最大值
+                  _norm = {}
+                  for _k, _v in _jt_all.items():
+                      _norm[_k] = _re.sub(r"^\d{4}-", "", str(_v).strip())
+                  _latest = max(_norm.values())                 # "MM-DD HH:MM"
+                  mt = datetime.datetime.strptime(
+                      str(datetime.datetime.now().year) + "-" + _latest, "%Y-%m-%d %H:%M")
+        except Exception:
+          mt = None
+        if mt is None:
+          mt = datetime.datetime.fromtimestamp(os.path.getmtime(LOG))
+        gen = datetime.datetime.now()                                  # 页面生成
+        age_h = (gen - mt).total_seconds() / 3600
         if age_h < 1:
             ago = "刚刚"
         elif age_h < 24:
             ago = f"{int(age_h)} 小时前"
         else:
             ago = f"{int(age_h / 24)} 天前"
-        stale = age_h > 26
-        badge = f"数据更新于 {mt.strftime('%m-%d %H:%M')}（{ago}）"
-        if stale:
-            badge += "· 已过期，检查 06:20 那个 cron"
-        cls = "upd stale" if stale else "upd"
-        new = _re.sub(r'<div class="upd" id="upd">.*?</div>',
+        badge = (f"页面生成 {gen.strftime('%m-%d %H:%M')}"
+                 f" ｜ 判断写于 {mt.strftime('%m-%d %H:%M')}（{ago}）")
+        # 12 小时起变黄提醒（判断半天没更新），26 小时起变红（错过了一次 06:20）
+        if age_h > 26:
+            badge += " ｜ ⚠ 判断已过期，明早 06:20 才会更新"
+            cls = "upd stale"
+        elif age_h > 12:
+            badge += " ｜ 判断已是半天前"
+            cls = "upd warn"
+        else:
+            cls = "upd"
+        new = _re.sub(r'<div class="upd[^"]*" id="upd">.*?</div>',
                       f'<div class="{cls}" id="upd">{badge}</div>', new, count=1)
+
+        # ★ 实时变动块（2026-11-20）
+        #   为什么加这块：刷新按钮只是重新渲染 _进度总表.md，内容不会变
+        #   （判断要 LLM 才能写）。加一块「当场扫的最近 24 小时变动」，
+        #   刷新后至少能看到哪些项目的文件刚动过。只进 index.html，不写总表。
+        try:
+            import html as _html
+            _now = datetime.datetime.now()
+            _lim = _now.timestamp() - 86400
+            _cur = scan()
+            _rows = []
+            for _n, _i in _cur.items():
+                _rec = [(f, m) for f, m in _i["files"].items() if m >= _lim]
+                if _rec:
+                    _rec.sort(key=lambda x: -x[1])
+                    _rows.append((_n, _rec))
+            if _rows:
+                _rows.sort(key=lambda x: (-len(x[1]), x[0]))
+                _lis = []
+                for _n, _rec in _rows:
+                    _top = _rec[:4]
+                    _parts = "、".join(
+                        "%s %s" % (_html.escape(f),
+                                   datetime.datetime.fromtimestamp(m).strftime("%m-%d %H:%M"))
+                        for f, m in _top)
+                    _more = "（共 %d 个）" % len(_rec) if len(_rec) > 4 else ""
+                    _lis.append('<li><b>%s</b>　%s%s</li>' % (_html.escape(_n), _parts, _more))
+                _live = ('<div class="live"><b>★ 实时变动</b>'
+                         '<span class="live-t">刚扫的 %s ｜ 最近 24 小时有变动的项目 %d 个</span>'
+                         '<ul>%s</ul></div>'
+                         % (_now.strftime("%m-%d %H:%M:%S"), len(_rows), "".join(_lis)))
+            else:
+                _live = ('<div class="live"><b>★ 实时变动</b>'
+                         '<span class="live-t">刚扫的 %s</span>'
+                         '<div class="live-none">最近 24 小时没有项目文件变动</div></div>'
+                         % _now.strftime("%m-%d %H:%M:%S"))
+            new = new.replace('<div id="live"></div>', _live, 1)
+        except Exception as _e:
+            new = new.replace(
+                '<div id="live"></div>',
+                '<div class="live"><b>★ 实时变动</b>'
+                '<div class="live-none">扫描出错：%s</div></div>' % _e, 1)
+
+        # ★ 每个项目的两个时间（2026-11-20）
+        #   卡片上显示「信息更新 10:39 ｜ 指令 12:03」：
+        #   前者 = 该项目文件最后动过的时间（客观）
+        #   后者 = 这条判断是什么时候写的（主观）
+        #   两个时间差得远，说明判断可能已经跟不上项目了。
+        try:
+            _jt = {}
+            if os.path.exists(JUDGE_TIMES):
+                with open(JUDGE_TIMES, encoding="utf-8") as _f:
+                    _jt = json.load(_f)
+            try:
+                _cur2 = _cur
+            except NameError:
+                _cur2 = scan()
+            _meta = {}
+            for _n, _i in _cur2.items():
+                _meta[_n] = {
+                    "info": datetime.datetime.fromtimestamp(_i["mtime"]).strftime("%m-%d %H:%M"),
+                    "judge": _jt.get(_n, ""),
+                }
+            _payload = json.dumps(_meta, ensure_ascii=False).replace("</", "<\\/")
+            new = _re.sub(
+                r'<script type="application/json" id="meta-times">.*?</script>',
+                '<script type="application/json" id="meta-times">' + _payload + '</script>',
+                new, count=1)
+        except Exception:
+            pass
+
+        # ★ 状态字段注入（2026-11-21 · 设计 2）—— 跟 meta-times 同一个手法
+        try:
+            _ps = load_pstate()
+            # ★★ 顺带算「状态字段多久没更新」：
+            #   06:20 那个 cron 走 --set 只写散文，不写 pstate（它的 prompt 没带字段）。
+            #   于是 pstate 会比判断旧 —— 卡片上必须看得出来，不能显示一个三天前的 stage
+            #   让人当成现状。（同类坑：任何「写下来就不再重算」的东西都会过期。）
+            _now3 = datetime.datetime.now()
+            for _k, _v in list(_ps.items()):
+                _at = (_v or {}).get("at", "")
+                try:
+                    _dt2 = datetime.datetime.strptime(_at, "%m-%d %H:%M").replace(year=_now3.year)
+                    if _dt2 > _now3:
+                        _dt2 = _dt2.replace(year=_now3.year - 1)
+                    _v["stale_h"] = int((_now3 - _dt2).total_seconds() // 3600)
+                except Exception:
+                    _v["stale_h"] = None
+            _ps_payload = json.dumps(_ps, ensure_ascii=False).replace("</", "<\\/")
+            new = _re.sub(
+                r'<script type="application/json" id="pstate">.*?</script>',
+                '<script type="application/json" id="pstate">' + _ps_payload + '</script>',
+                new, count=1)
+        except Exception:
+            pass
+
+        # ★★★ 异常区（2026-11-21 · 设计 3）
+        #   为什么加：8 张卡平铺，靠滚动找问题 —— 你得先看完才知道哪个不对。
+        #   改成顶部一个异常区，只列【纯脚本能算出来】的三种不对，零 token：
+        #     ① 停滞 >14 天，但队列还挂着活   ← 有活、没人做（最该看这条）
+        #     ② 队列挂了 >72 小时没动          ← 派下去了，没回音
+        #     ③ 判断 >26 小时没更新            ← 话是旧的，别照着它做决定
+        #   ★ 「验收未通过 / 疑似完成」不进这里 —— 那两块由 /suspects 当场算，
+        #     写进静态 HTML 会在刷新前就过期。
+        try:
+            import html as _h2
+            _now2 = datetime.datetime.now()
+            try:
+                _scan2 = _cur2
+            except NameError:
+                _scan2 = scan()
+            _jt3 = {}
+            try:
+                if os.path.exists(JUDGE_TIMES):
+                    with open(JUDGE_TIMES, encoding="utf-8") as _f3:
+                        _jt3 = json.load(_f3) or {}
+            except Exception:
+                _jt3 = {}
+
+            # 判定逻辑抽到 compute_anomalies()，这里只负责渲染（可单独测）
+            _anoms = compute_anomalies(_scan2, _jt3, _now2)
+
+            if _anoms:
+                _anoms.sort(key=lambda x: (x[0], x[1]))
+                _li2 = "".join(
+                    '<li><b>%s</b>　<span>%s</span></li>' % (_h2.escape(n), _h2.escape(w))
+                    for _, n, w in _anoms)
+                _blk = ('<div class="anom"><b>⚠ 异常 %d 条</b>'
+                        '<span class="anom-t">只列能算出来的：停滞但有活 / 队列超 72 小时没动 / 判断过期</span>'
+                        '<ul>%s</ul></div>' % (len(_anoms), _li2))
+            else:
+                _blk = ('<div class="anom ok"><b>✓ 无异常</b>'
+                        '<span class="anom-t">没有「停滞但有活」/「队列超 72 小时没动」/「判断过期」的项目</span></div>')
+            new = new.replace('<div class="live">', _blk + '<div class="live">', 1)
+        except Exception:
+            pass
 
         out = os.path.join(out_dir, "index.html")
         with open(out, "w", encoding="utf-8") as f:

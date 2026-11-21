@@ -87,14 +87,23 @@ def main():
     as_json = "--json" in sys.argv
 
     if not root:
-        print("没有项目根目录。按这两步配一下：")
-        print("  ① cp agent-config.example.json agent-config.json")
-        print("  ② 在里面填 projects_root（每个子文件夹 = 一个项目）")
-        print("或者直接传：python scan_projects.py <项目根目录>")
+        print("✗ 还没配项目根目录（projects_root）。")
+        print()
+        print("  按这两步：")
+        print("    1) 把 scripts/agent-config.example.json 另存为同目录的 agent-config.json")
+        print('    2) 在它里面填 projects_root —— 你的项目根目录')
+        print("       （它下面每个子文件夹 = 一个项目，每个项目里要有队列文件如 _给WB.md）")
+        print()
+        print("  配完先跑这个确认：python paths.py")
+        print("  看到「项目根可用  是」再回来跑本脚本。")
         return 1
 
     if not os.path.isdir(root):
-        print(f"目录不存在: {root}")
+        # ★ 和「没配」分开说：这里配了，但路径不存在 —— 多半是打错字或盘符不对
+        print(f"✗ 配置里的 projects_root 不存在：{root}")
+        print()
+        print("  可能原因：打错字 / 盘符不对 / 目录被移动")
+        print("  排查：python paths.py   （它会告诉你这个值是从哪来的）")
         return 1
 
     rows = scan(root)

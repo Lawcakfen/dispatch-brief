@@ -15,8 +15,12 @@ import re
 # 明确的完成信号（缺一个都不算）
 DONE_SIGNALS = (
     "已修", "已改", "已完成", "已上架", "已交付", "已发布", "已上线",
-    "已生成", "已落地", "自检通过", "改完", "做完了", "跑通", "已补齐", "已整理",
+    "已生成", "已落地", "自检通过", "改完了", "做完了", "跑通", "已补齐", "已整理",
 )
+# ★★★ 2026-11-19：原来这里是「改完」两个字，实测会误命中。
+#   WB 写「改完做 py_compile + node --check + md5 复核再汇报」——语义是「改完之后要做什么」，
+#   还没做完，但「改完」被当成完成信号，直接打勾。
+#   改成「改完了」：要求后面跟「了」，才表示已经发生。
 
 # 探路词：出现这些但没完成信号时，明确不算完成
 PROBE_SIGNALS = ("发现", "查了一下", "试了", "报错", "不能用", "需要确认", "建议")
@@ -46,6 +50,71 @@ def fp(item):
     t = item["text"] if isinstance(item, dict) else str(item)
     t = re.sub(r"^\*\*[\d\-]+\*\*\s*", "", t).replace("**", "").strip()
     return t[:24]
+
+
+def acceptance_of(item):
+    """取条目里的 `验收:` 判据（支持全角/半角冒号，允许反引号）。
+
+    格式（写在条目的续行里，缩进两个空格或 `  - `）：
+        - [ ] **11-21** **空本子删周历条目**
+          - 验收: grep -c "delCal" 空本子.html && python selftest.py
+
+    ★ 2026-11-21 新增：队列此前只能靠「读 memory 猜语义」打勾，实测假阳性 50%。
+      加了这一行之后，打勾变成「跑一条命令」—— 确定性，不需要猜。
+    """
+    for _, raw in item.get("extra", []):
+        m = re.match(r"^\s*[-*]?\s*\**验收\**\s*[:：]\s*(.+)$", raw.strip())
+        if m:
+            return m.group(1).strip().strip("`").strip()
+    return None
+
+
+def _run_sh(cmd, cwd, timeout):
+    """跑一条 shell 命令，返回 (returncode, 合并输出)。"""
+    import shutil
+    import subprocess
+
+    bash = shutil.which("bash")
+    if bash:
+        p = subprocess.run([bash, "-lc", cmd], cwd=cwd, timeout=timeout,
+                           capture_output=True, text=True,
+                           encoding="utf-8", errors="ignore")
+    else:
+        p = subprocess.run(cmd, shell=True, cwd=cwd, timeout=timeout,
+                           capture_output=True, text=True,
+                           encoding="utf-8", errors="ignore")
+    out = (p.stdout or "").strip() or (p.stderr or "").strip()
+    return p.returncode, re.sub(r"\s+", " ", out)[:150]
+
+
+def run_acceptance(cmd, cwd, timeout=25):
+    """跑一条验收判据，返回 (ok, detail)。约定：退出码 0 = 通过。
+
+    ★★ 2026-11-21：失败时要指明「是哪一条没过」，否则详情只有「退出码 1」，
+       对修的人没用。判据一般写成 a && b && c，所以失败时按 && 拆开逐条跑，
+       报第一条失败的那句 —— 这比让人自己一行行试强。
+    """
+    try:
+        rc, out = _run_sh(cmd, cwd, timeout)
+        if rc == 0:
+            return True, (out or "通过")
+
+        # 失败：逐条定位（只对 && 连接的判据有效，其余直接返回）
+        parts = [p.strip() for p in cmd.split(" && ") if p.strip()]
+        if len(parts) > 1:
+            for i, part in enumerate(parts, 1):
+                prc, pout = _run_sh(part, cwd, timeout)
+                if prc != 0:
+                    return False, "第 %d/%d 条判据未过：`%s`%s" % (
+                        i, len(parts), part[:70],
+                        ("；" + pout) if pout else "",
+                    )
+        return False, "退出码 %d；%s" % (rc, out or "无输出")
+    except Exception as e:
+        msg = str(e)
+        if "TimeoutExpired" in type(e).__name__:
+            msg = "超时 %d 秒" % timeout
+        return False, "执行失败：%s" % msg
 
 
 def parse_queue(path):
@@ -146,8 +215,16 @@ def match_done(mem_text, queue_items):
         inter = qt & mem_t
         if len(inter) > best_score:
             best, best_score = idx, len(inter)
-    if best is not None:
+    if best is not None and best_score >= 2:
+        # ★★★ 2026-11-19 加阈值：原来这里没有 best_score 检查，重合 1 个就打勾。
+        #   实测：v8 那条队列和 memory 里的报告共享 build_board.py / board.html / md5 /
+        #   py_compile 等多个标识，1 个根本挡不住。而两个具体标识（任务名 + 文件名）
+        #   同时出现，才说明报告讲的是这件事，不是顺手提到它。
+        #   ★ 为什么是 2 不是更高：纯中文任务走下面那个分支（阈值 4）；
+        #     能走到这里的都是带英文标识的，2 个已经是很强的一致性要求。
         return best, "标识符重合 %d 个" % best_score
+    if best is not None:
+        return None, "标识符重合不足（%d 个，需 ≥2）" % best_score
 
     # ★ 兜底：双方都没有英文标识符时（纯中文任务），改用中文短语重合，要求 ≥2
     mt = _phrases(mem_text)
