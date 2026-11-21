@@ -59,6 +59,49 @@ def find_queue(proj_dir):
     return os.path.join(proj_dir, QUEUE_ALIASES[0])
 
 
+# ★★★ 执行方日志目录：对外约定 .agent/memory，读取时兜底旧的（2026-11-22）
+#   为什么对外只约定一个、读取却留候选：
+#     存量 21 个项目 / 148 个日志全在 .workbuddy/memory。
+#     只认新名字 = 明天看板全空、所有项目显示「没动」。
+#     ★ 约定可以换，兜底不能删 —— 这不是「两处真相」，是「同一件东西的多个可能位置」，
+#       每个项目只会用一个（见 memory_dir），冲突由 memory_dir_others 报出来。
+MEMORY_CANDIDATES = (".agent/memory", ".workbuddy/memory", ".codex/memory",
+                     ".claude/memory", "memory")
+
+
+def _memory_cfg():
+    """配置里显式指定的日志子目录（相对项目根），没配返回空串。"""
+    return (_cfg.get("memory_dir") or "").strip().replace("\\", "/")
+
+
+def memory_dir(proj_dir):
+    """这个项目的「执行方日志目录」在哪：配置 > 候选顺序里第一个存在的 > 默认第一个。"""
+    cfg = _memory_cfg()
+    if cfg:
+        return os.path.join(proj_dir, *cfg.split("/"))
+    for rel in MEMORY_CANDIDATES:
+        p = os.path.join(proj_dir, *rel.split("/"))
+        if os.path.isdir(p):
+            return p
+    return os.path.join(proj_dir, *MEMORY_CANDIDATES[0].split("/"))
+
+
+def memory_dir_others(proj_dir):
+    """同一项目里【另外也存在】的日志目录 —— 用来提示「有两处，只用了一处」。
+
+    ★ 这个提示是必须的：用 WorkBuddy 的人，产品自己会往 .workbuddy/memory 写，
+      而他又照新约定往 .agent/memory 写 → 两处都有 → 只读一处就静默丢一半日志。
+      所以不能装看不见，要把「另一处被忽略了」说出来。
+    """
+    cfg = _memory_cfg()
+    if cfg:
+        return []
+    chosen = os.path.normpath(memory_dir(proj_dir))
+    return [os.path.join(proj_dir, *rel.split("/")) for rel in MEMORY_CANDIDATES
+            if os.path.isdir(os.path.join(proj_dir, *rel.split("/")))
+            and os.path.normpath(os.path.join(proj_dir, *rel.split("/"))) != chosen]
+
+
 def _looks_like_projects(p):
     """判断一个目录是不是「项目根」：它下面某个子目录里有队列文件。"""
     try:

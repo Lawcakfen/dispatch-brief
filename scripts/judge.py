@@ -34,7 +34,8 @@ def scan_recent(proj_dir, hours=24):
     ★ 返回绝对路径 —— judge 子进程要靠它去读内容，只给相对路径它找不到。"""
     cutoff = time.time() - hours * 3600
     out = []
-    skip = {".workbuddy", "node_modules", ".git", "__pycache__", "Temp", "dist", "build"}
+    skip = {".workbuddy", ".agent", ".codex", ".claude",
+            "node_modules", ".git", "__pycache__", "Temp", "dist", "build"}
     for root, dirs, files in os.walk(proj_dir):
         dirs[:] = [d for d in dirs if d not in skip]
         for f in files:

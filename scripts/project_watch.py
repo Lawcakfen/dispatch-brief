@@ -107,7 +107,8 @@ PROGRESS_KEYS = ("版本记录", "进度", "readme", "工作记录", "进展", "
 # ★ 按需增删。如果你发现某个项目「文件总数」大得离谱，
 #   大概率是它里面有个克隆下来的工程或构建目录 —— 把目录名加到这里。
 IGNORE_DIRS = {"dist", "build", ".cache", "vendor", ".next", ".nuxt", "coverage"}
-SKIP_DIRS = {".workbuddy", "node_modules", ".git", "Temp", "__pycache__"} | IGNORE_DIRS
+SKIP_DIRS = {".agent", ".workbuddy", ".codex", ".claude",
+             "node_modules", ".git", "Temp", "__pycache__"} | IGNORE_DIRS
 # ★ 预览/截图缓存目录（2026-11-20 加）
 #   实测：内容看板@WorkBuddy 下有个 .reviewpro，里面有 327 个缓存文件天天变，
 #   把「最近变动」全占了，看板上显示「共 327 个」，掩盖了真正改动的源文件。
@@ -215,12 +216,12 @@ def condense(txt, maxchars=1800):
 
 
 def wb_memory(proj_dir, maxchars=9000):
-    """读 WorkBuddy 自己写的工作日志（项目内 .workbuddy/memory/<日期>.md）。
+    """读执行方自己写的工作日志（默认 <项目>/.agent/memory/<日期>.md，兜底旧路径）。
     ★ 这是「意图层」信息：为什么改、改到哪、等谁确认 —— 比文件 mtime 信息量大得多。
     ★ 读最近 **2 天**（不是只读最新一份），避免跨天遗漏。
     ★ 长报告会被 condense() 压缩成骨架 —— 现在保证【所有小节标题】都在，
       预算从 2400 提到 9000（每份 4500），因为进度全在标题里，标题丢了判断就会错。"""
-    mdir = os.path.join(proj_dir, ".workbuddy", "memory")
+    mdir = paths.memory_dir(proj_dir)
     if not os.path.isdir(mdir):
         return ""
     cands = []
@@ -451,9 +452,9 @@ def evidence(only=None):
         wbm = wb_memory(os.path.join(ROOT, name))
         if wbm:
             indented = "\n".join("  " + l for l in wbm.split("\n"))
-            blocks.append("- ★★★ **WorkBuddy 的工作报告（它自己写的，最权威）**：\n" + indented)
+            blocks.append("- ★★★ **执行方的工作报告（它自己写的，最权威）**：\n" + indented)
         else:
-            blocks.append("- ⚠️ 该项目没有 WorkBuddy 工作日志（.workbuddy/memory 无日期文件）——"
+            blocks.append("- ⚠️ 该项目没有执行方工作日志（记忆目录里没有日期文件）——"
                           "「现在到哪了」只能靠文件变动推断，判断要保守")
 
         # ★★ 队列待发（2026-11-20 加）：让判断知道「还有哪些活没干」

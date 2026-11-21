@@ -30,7 +30,9 @@ except Exception:
 
 # ★ 这些目录不算「项目的活动」
 SKIP_DIRS = {
-    ".workbuddy", "node_modules", ".venv", "venv", "__pycache__",
+    # ★ 2026-11-22：日志目录名从工作流里解放出来，四个候选都排掉
+    ".agent", ".workbuddy", ".codex", ".claude",
+    "node_modules", ".venv", "venv", "__pycache__",
     ".git", "dist", ".next", ".cache", "Temp", "backups",
 }
 

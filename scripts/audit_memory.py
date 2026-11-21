@@ -20,7 +20,7 @@ for d in sorted(os.listdir(ROOT)):
     p = os.path.join(ROOT, d)
     if not os.path.isdir(p) or d.startswith("_"):
         continue
-    mdir = os.path.join(p, ".workbuddy", "memory")
+    mdir = paths.memory_dir(p)
     if not os.path.isdir(mdir):
         continue
     for fn in sorted(os.listdir(mdir)):

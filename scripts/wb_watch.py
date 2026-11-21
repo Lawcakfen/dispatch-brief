@@ -60,6 +60,9 @@ ARTIFACT_SKIP_DIRS = {
     ".playwright-cli", "playwright-report", "test-results", ".pytest_cache",
     ".mypy_cache", ".ruff_cache", "tmp", ".tmp",
     "blob_storage", "service worker", "local storage", ".workbuddy",
+    # ★ 2026-11-22：日志目录改成可配（默认 .agent/memory），这些名字都要排掉，
+    #   否则日志文件会被当成「产物变了」，和 scan_memory 重复报。
+    ".agent", ".codex", ".claude",
 }
 ARTIFACT_SKIP_EXT = (".log", ".lock", ".pyc", ".pyo", ".swp")
 
@@ -117,7 +120,8 @@ def scan_memory():
         p = os.path.join(pw.ROOT, d)
         if not os.path.isdir(p) or d.startswith("_"):
             continue
-        mdir = os.path.join(p, ".workbuddy", "memory")
+        # ★ 用 paths.memory_dir：配置 > .agent/memory > .workbuddy/memory > 其他候选
+        mdir = paths.memory_dir(p)
         if not os.path.isdir(mdir):
             continue
         files = {}
@@ -548,7 +552,7 @@ def main():
             has_mem = proj in cur
             beats.append({"proj": proj, "kind": "stall",
                           "topic": f"派单 {hours:.1f} 小时，{'memory 无新增内容' if has_mem else '该项目连 memory 目录都没有'}" if has_mem
-                                   else f"派单 {hours:.1f} 小时，还没建过 .workbuddy/memory",
+                                   else f"派单 {hours:.1f} 小时，还没建过日志目录（{os.path.relpath(paths.memory_dir(os.path.join(pw.ROOT, proj)), pw.ROOT)}）",
                           "left": len(q["items"])})
             pst["__notified_stall"] = True
 

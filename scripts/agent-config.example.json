@@ -10,6 +10,9 @@
   "_focus_projects": "要详细汇报的项目名（子串匹配）。留空 = 全部项目都概览。",
   "focus_projects": [],
 
+  "_memory_dir": "执行方日志目录（相对项目根）。留空 = 自动按顺序找：.agent/memory → .workbuddy/memory → .codex/memory → .claude/memory → memory。★ 对外约定用 .agent/memory；老的 .workbuddy/memory 会一直被兜底。",
+  "memory_dir": "",
+
   "_client_projects": "客户项目名（子串匹配），会单独标成「客户项目」。没有就留空。",
   "client_projects": [],
 
