@@ -171,15 +171,24 @@ class Handler(BaseHTTPRequestHandler):
             return
         if p in ("/project", "/project.html", "/index.html"):
             if not os.path.exists(BOARD):
-                self._send(404, "index.html 不存在，先跑一次 刷新项目看板.cmd", "text/plain; charset=utf-8")
+                self._send(404, "index.html 不存在，先跑一次：python project_watch.py --board",
+                           "text/plain; charset=utf-8")
                 return
             with open(BOARD, "rb") as f:
                 self._send(200, f.read(), "text/html; charset=utf-8")
             return
         if p in ("/", "/home", "/home.html"):
             # ★ 默认页 = 标签页外壳（项目进度 / 当前聚焦）
+            #   ★★★ 2026-11-22：发布包里没有东西生成 home.html，
+            #   于是「启动横幅打印的地址」打开就是 404 —— 新用户第一步就撞墙。
+            #   现在：没有外壳时，根路径直接给项目看板（有外壳才用外壳）。
+            if not os.path.exists(HOME) and os.path.exists(BOARD):
+                with open(BOARD, "rb") as f:
+                    self._send(200, f.read(), "text/html; charset=utf-8")
+                return
             if not os.path.exists(HOME):
-                self._send(404, "home.html 不存在（标签页外壳）", "text/plain; charset=utf-8")
+                self._send(404, "还没有看板页面。先跑一次：python project_watch.py --board",
+                           "text/plain; charset=utf-8")
                 return
             with open(HOME, "rb") as f:
                 self._send(200, f.read(), "text/html; charset=utf-8")
