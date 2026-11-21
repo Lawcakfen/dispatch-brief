@@ -23,6 +23,29 @@ import paths                      # ★ 所有路径的唯一来源
 # Hermes 可执行文件：先用 PATH 里的，找不到就按 HERMES_HOME 推
 HERMES = shutil.which("hermes") or os.path.join(
     paths.HERMES_HOME, "hermes-agent", "venv", "Scripts", "hermes.EXE")
+
+
+def hermes_missing_help():
+    """这个重版本靠 hermes 命令行起一次完整 session。
+
+    ★ 发布版必须说清楚：没装 Hermes 的人用不了它 —— 但【不影响其它一切】，
+      普通用户用 judge_lite.py 就够了（那个只要一个 API key）。
+      原来这里没有这层判断，没装 Hermes 的人会看到一句「（判断失败）」，不知道为什么。
+    """
+    return (
+        "✗ 没找到 hermes 命令行，judge.py 跑不了。\n"
+        "\n"
+        "  judge.py 是「重版本」：它起一次完整的 Hermes session 来做判断，\n"
+        "  所以只在装了 Hermes Agent 的机器上能用。\n"
+        "\n"
+        "  找过的位置：\n"
+        "    · PATH 里的 hermes\n"
+        "    · %s\n"
+        "\n"
+        "  ★ 你大概率不需要它：\n"
+        "    · 要判断 → 用 judge_lite.py（只要一个 API key，任何 OpenAI 兼容接口都行）\n"
+        "    · 要数据 → project_watch.py / scan_projects.py 不依赖 Hermes\n"
+        "  这个文件留在包里，是给「已经装了 Hermes 的人」用的。\n" % HERMES)
 TIMEOUT = 200          # 秒
 MAX_FILES = 40         # 列出多少改动文件
 MAX_MEM = 4000         # memory 截断字符
@@ -111,6 +134,8 @@ def build_prompt(proj, done_items, mem_text, files, proj_dir=None):
 
 def judge(proj, done_items, mem_text, files, verbose=False, proj_dir=None):
     """返回判断文本；失败返回 None（调用方降级处理）"""
+    if not HERMES or not os.path.isfile(HERMES):
+        return None
     prompt = build_prompt(proj, done_items, mem_text, files, proj_dir=proj_dir)
     try:
         t0 = time.time()
@@ -137,6 +162,9 @@ def judge(proj, done_items, mem_text, files, verbose=False, proj_dir=None):
 
 if __name__ == "__main__":
     # 单跑测试：python judge.py "项目名"
+    if not HERMES or not os.path.isfile(HERMES):
+        print(hermes_missing_help())
+        sys.exit(2)
     if len(sys.argv) < 2:
         print("用法: python judge.py <项目目录名>")
         sys.exit(1)
