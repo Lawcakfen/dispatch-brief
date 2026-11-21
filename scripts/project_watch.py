@@ -114,7 +114,8 @@ SKIP_DIRS = {".workbuddy", "node_modules", ".git", "Temp", "__pycache__"} | IGNO
 SKIP_DIR_PREFIXES = (".reviewpro", "reviewpro", "_reviewpro")
 # ★ 队列文件名（含兼容别名）：扫描时一律排除，避免我自己的写入污染「最近改动」
 QUEUE_NAME = "_给WB.md"
-QUEUE_ALIASES = {"_给WB.md", "_给执行Agent.md", "_给wb.md"}
+# ★ 队列文件名从 paths.py 取（唯一来源）；这里保留 set 形式给成员判断用
+QUEUE_ALIASES = set(paths.QUEUE_ALIASES)
 # ★ 跳过备份/临时文件 —— 实测某项目一天生成 6597 个 _bak_before_*.html，
 #   把「文件总数」和「今日新增」全部冲垮，还让停滞天数失真
 SKIP_FILE_HINTS = ("_bak_", ".bak", ".tmp", ".temp", "~$", ".orig", ".swp",

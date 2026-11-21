@@ -36,6 +36,29 @@ def _expand(p):
     return os.path.expandvars(os.path.expanduser(str(p)))
 
 
+# ★★★ 队列文件名的【唯一来源】（2026-11-22 收口）
+#   原来三处各写一份、而且不一致：
+#     paths.py          4 个（含 _给Codex.md）
+#     project_watch.py  3 个（没有 Codex）
+#     wb_watch.py       借用 project_watch 的那份
+#   后果：用 _给Codex.md 的人能通过「这是不是项目」的探测，
+#         但 wb_watch 读队列时只认 _给WB.md → 静默什么都不发生。
+#   ★ 顺序有意义：排在前面的优先（第一个存在的就用它）。
+QUEUE_ALIASES = ("_给WB.md", "_给执行Agent.md", "_给wb.md", "_给Codex.md")
+
+
+def find_queue(proj_dir):
+    """在一个项目目录里找队列文件；按 QUEUE_ALIASES 顺序取第一个存在的。
+
+    找不到时返回默认名（调用方自己判断存不存在），这样报错里能给出一个具体文件名。
+    """
+    for n in QUEUE_ALIASES:
+        p = os.path.join(proj_dir, n)
+        if os.path.isfile(p):
+            return p
+    return os.path.join(proj_dir, QUEUE_ALIASES[0])
+
+
 def _looks_like_projects(p):
     """判断一个目录是不是「项目根」：它下面某个子目录里有队列文件。"""
     try:
@@ -43,9 +66,8 @@ def _looks_like_projects(p):
             sub = os.path.join(p, d)
             if not os.path.isdir(sub):
                 continue
-            for q in ("_给WB.md", "_给执行Agent.md", "_给wb.md", "_给Codex.md"):
-                if os.path.isfile(os.path.join(sub, q)):
-                    return True
+            if os.path.isfile(find_queue(sub)):
+                return True
     except Exception:
         pass
     return False

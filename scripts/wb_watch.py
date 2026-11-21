@@ -145,7 +145,9 @@ def pending_projects():
         p = os.path.join(pw.ROOT, d)
         if not os.path.isdir(p) or d.startswith("_"):
             continue
-        qp = os.path.join(p, QUEUE_NAME)
+        # ★ 用 paths.find_queue：按别名顺序找，不再写死 _给WB.md
+        #   （paths 探测认 4 个别名，读取只认 1 个 → 用 _给Codex.md 的人静默失效）
+        qp = paths.find_queue(p)
         if not os.path.exists(qp):
             continue
         q = Q.parse_queue(qp)
@@ -476,7 +478,7 @@ def main():
                               "left": len(pend[proj][1]["items"])})
                 pst["__notified_start"] = True
 
-        qpath = os.path.join(pw.ROOT, proj, QUEUE_NAME)
+        qpath = paths.find_queue(os.path.join(pw.ROOT, proj))
         q = Q.parse_queue(qpath)
         if not q or not q["items"]:
             continue
@@ -554,7 +556,7 @@ def main():
         # ★ 本轮所有 tick 已结束 → 这时才记录最新待发列表
         for proj in pend:
             try:
-                _q = Q.parse_queue(os.path.join(pw.ROOT, proj, QUEUE_NAME))
+                _q = Q.parse_queue(paths.find_queue(os.path.join(pw.ROOT, proj)))
                 st.setdefault(proj, {})["__last_pending"] = (
                     [Q.fp(it) for it in _q["items"]] if _q else [])
             except Exception:
