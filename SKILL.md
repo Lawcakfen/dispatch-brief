@@ -231,7 +231,6 @@ pstate.json         快照（每次覆盖，放 stage / next / blocker / criteri
 
 **★★ 原两个 skill 已改成「指针」（打开会告诉你「已并入 super-agent」），不再维护。**
 
-**★ 合并脚本：`~/AppData/Local/hermes/scripts/build_merged.py`（可重跑）。**
 
 ### 合并时诚实交代的两件事
 
