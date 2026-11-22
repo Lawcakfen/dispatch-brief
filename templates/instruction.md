@@ -41,7 +41,7 @@
 ```
 ★ 位置约定（每份指令开头都写，不要用占位符）
 · 队列文件：<项目目录>/_给WB.md
-· 你的日志：<项目目录>/.agent/memory/YYYY-MM-DD.md
+· 你的日志：<项目目录>/.workbuddy/memory/YYYY-MM-DD.md
   —— 一天一个文件，只追加；目录不存在就新建
 · 日志目录想换名字：配 agent-config.json 的 memory_dir，然后这里跟着改
 ```
@@ -53,7 +53,7 @@
 
 ```
 ★★ WB 注意
-你只写 <项目目录>/.agent/memory/YYYY-MM-DD.md。
+你只写 <项目目录>/.workbuddy/memory/YYYY-MM-DD.md。
 **不要修改 _给WB.md** —— 包括打勾、包括把你的完成报告贴进去。
 打勾和验收由 Hermes 的 cron 自动完成（每 5 分钟扫一次）。
 你做完就停，等结果。

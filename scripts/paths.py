@@ -59,13 +59,15 @@ def find_queue(proj_dir):
     return os.path.join(proj_dir, QUEUE_ALIASES[0])
 
 
-# ★★★ 执行方日志目录：对外约定 .agent/memory，读取时兜底旧的（2026-11-22）
-#   为什么对外只约定一个、读取却留候选：
-#     存量 21 个项目 / 148 个日志全在 .workbuddy/memory。
-#     只认新名字 = 明天看板全空、所有项目显示「没动」。
-#     ★ 约定可以换，兜底不能删 —— 这不是「两处真相」，是「同一件东西的多个可能位置」，
-#       每个项目只会用一个（见 memory_dir），冲突由 memory_dir_others 报出来。
-MEMORY_CANDIDATES = (".agent/memory", ".workbuddy/memory", ".codex/memory",
+# ★★★ 执行方日志目录：约定 .workbuddy/memory（2026-11-22 晚更正，按本机原有规则）
+#   ★ 背景：11-22 白天一度把对外约定改成 .agent/memory，理由是「名字不该绑某个产品」。
+#     但作者本机的实际工作流 —— 原始指令文档、Vault 规则、21 个项目 / 148 个日志 ——
+#     全部是 .workbuddy/memory。两套写法并存会让执行方不知道往哪写，
+#     或者同一个项目里出现两个日志目录（一半日志读不到）。
+#   → 结论：以 .workbuddy/memory 为准；.agent/memory 降级为【兜底】，
+#     只服务「按白天那版说明建过目录」的情况。
+#   ★ 约定可以换，兜底不能删；每个项目只用一处，冲突由 memory_dir_others 报出来。
+MEMORY_CANDIDATES = (".workbuddy/memory", ".agent/memory", ".codex/memory",
                      ".claude/memory", "memory")
 
 
