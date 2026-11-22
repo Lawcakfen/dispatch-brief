@@ -713,23 +713,51 @@ def _arg(flag, default=""):
     return default
 
 
-def compute_anomalies(scan_result, judge_times, now=None):
-    """算出「能纯脚本判定」的三种异常，返回 [(优先级, 项目名, 说明)]。
+def _thr(key, default):
+    """读阈值配置（agent-config.json），读不到就用默认值。"""
+    try:
+        v = paths.conf(key, "")
+        if str(v).strip():
+            return float(v)
+    except Exception:
+        pass
+    return float(default)
+
+
+def compute_anomalies(scan_result, judge_times, now=None, warn_h=None, bad_h=None):
+    """算出「能纯脚本判定」的四种异常，返回 [(优先级, 项目名, 说明)]。
 
     ★ 2026-11-21 从 --board 的渲染代码里抽出来 —— 埋在 main() 里就没法单独测，
       而「无异常」和「停滞」这两个分支最容易写错：
       条件写反了不报错，只是永远不响，或者永远响。
 
-    三种：
-      1 停滞 >14 天，但队列还挂着活   ← 有活、没人做
-      2 队列挂了 >72 小时没动          ← 派下去了，没回音
-      3 判断 >26 小时没更新            ← 话是旧的
+    ★★★ 2026-11-22 加一档「派了没动」：原来只有 >72 小时一档，
+      导致「昨天派下去、今天还没开工」的项目一天之内完全不出现在看板上
+      —— 而它恰恰是最该被看见的状态（最可能是执行方根本没读到指令）。
+      现在两档，阈值都可配：
+        队列挂 > queue_warn_h（默认 12 小时）→ 优先级 1「派了没动」
+        队列挂 > queue_bad_h（默认 72 小时）→ 优先级 2「挂太久」
+
+    四种：
+      1 派下去了、一直没动静（>12h）      ← 先确认它读到指令了没有
+      1 停滞 >14 天，但队列还挂着活        ← 有活、没人做
+      2 队列挂了 >72 小时没动              ← 派下去了，没回音
+      3 判断 >26 小时没更新                ← 话是旧的
 
     ★ 共同前提：只有【队列里还有待发】的项目才判定。
       没有待发的项目不算异常 —— 那是「没在办」，不是「出问题」。
       进异常区只会变成噪音，而噪音会让人不再看异常区。
     """
     now = now or datetime.datetime.now()
+    # ★★ 阈值可注入：单测必须传死值，否则结果会随本机 agent-config.json 变
+    #    （2026-11-22 实测踩过：作者把本机设成 6 小时，单测的 12 小时边界当场变成失败）
+    if warn_h is None:
+        warn_h = _thr("queue_warn_h", 12)
+    if bad_h is None:
+        bad_h = _thr("queue_bad_h", 72)
+    warn_h, bad_h = float(warn_h), float(bad_h)
+    if bad_h < warn_h:
+        bad_h = warn_h
     out = []
     for name, info in (scan_result or {}).items():
         qf = os.path.join(ROOT, name, "_给WB.md")
@@ -750,8 +778,12 @@ def compute_anomalies(scan_result, judge_times, now=None):
         idle_d = (now.timestamp() - info["mtime"]) / 86400.0
         if idle_d > 14:
             out.append((1, name, "停滞 %d 天，队列还挂着 %d 条" % (int(idle_d), pend)))
-        elif q_age_h is not None and q_age_h > 72:
+        elif q_age_h is not None and q_age_h > bad_h:
             out.append((2, name, "队列挂 %d 条，%d 天没动" % (pend, int(q_age_h // 24))))
+        elif q_age_h is not None and q_age_h > warn_h:
+            # ★ 新档：派下去就没了动静。天数是 0，写小时更准。
+            out.append((1, name, "队列挂 %d 条，%d 小时没动静 —— 派下去了，执行方可能没开工"
+                        % (pend, int(q_age_h))))
 
         js = (judge_times or {}).get(name, "")
         if js:
@@ -1055,12 +1087,18 @@ def main():
                 _li2 = "".join(
                     '<li><b>%s</b>　<span>%s</span></li>' % (_h2.escape(n), _h2.escape(w))
                     for _, n, w in _anoms)
+                # ★ 阈值标签必须跟着配置走，不能写死 12/72
+                _wh = int(_thr("queue_warn_h", 12))
+                _bh = int(_thr("queue_bad_h", 72))
                 _blk = ('<div class="anom"><b>⚠ 异常 %d 条</b>'
-                        '<span class="anom-t">只列能算出来的：停滞但有活 / 队列超 72 小时没动 / 判断过期</span>'
-                        '<ul>%s</ul></div>' % (len(_anoms), _li2))
+                        '<span class="anom-t">只列能算出来的：派了没动(&gt;%dh) / 停滞但有活 / 挂太久(&gt;%dh) / 判断过期</span>'
+                        '<ul>%s</ul></div>' % (len(_anoms), _wh, _bh, _li2))
             else:
+                _wh = int(_thr("queue_warn_h", 12))
+                _bh = int(_thr("queue_bad_h", 72))
                 _blk = ('<div class="anom ok"><b>✓ 无异常</b>'
-                        '<span class="anom-t">没有「停滞但有活」/「队列超 72 小时没动」/「判断过期」的项目</span></div>')
+                        '<span class="anom-t">没有「派了没动(&gt;%dh)」/「停滞但有活」/「挂太久(&gt;%dh)」/「判断过期」的项目</span></div>'
+                        % (_wh, _bh))
             new = new.replace('<div class="live">', _blk + '<div class="live">', 1)
         except Exception:
             pass

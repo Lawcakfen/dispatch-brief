@@ -22,8 +22,13 @@
   "judge_api_key_env": "",
   "_judge_api_key": "不推荐直接把 key 写这里（会被 git 带上）。优先用环境变量，或在 scripts/ 下建 .env 文件",
   "judge_api_key": "",
-  "_env_file": "自定义 .env 文件路径（可选）。不填会依次找：%LOCALAPPDATA%/hermes/.env、scripts/.env",
+  "_env_file": "自定义 .env 文件路径（可选）。不填会依次找：%LOCALAPPDATA%/hermes/.env → scripts/.env → ~/.env",
   "env_file": "",
+
+  "_queue_warn_h": "队列挂了超过这么多小时没动静，就进看板顶部异常区「派了没动」（默认 12）。★ 你的节奏是当天要有回音，就调小，比如 6。调小不会噪音泛滥 —— 只有「还有待发」的项目才会被判。",
+  "queue_warn_h": 12,
+  "_queue_bad_h": "队列挂超过这么多小时算「挂太久」，报天数而不是小时（默认 72）。",
+  "queue_bad_h": 72,
 
   "_client_projects": "客户项目名（子串匹配），会单独标成「客户项目」。没有就留空。",
   "client_projects": [],
