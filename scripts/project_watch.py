@@ -801,6 +801,82 @@ def compute_anomalies(scan_result, judge_times, now=None, warn_h=None, bad_h=Non
     return out
 
 
+def _out_mtime(info):
+    """这个项目「最后一次产出」的时间。
+
+    ★★★ 必须排除两类文件，否则会骗人（2026-11-22 实测踩到）：
+      · 队列文件（_给WB.md）—— 我自己改队列会把时间刷成刚才，看着像它干了活
+      · 指令文件（WB指令-*.md）—— 那是输入，不是产出
+    实测例子：空本子的 html 停在 11-21 13:42，但直接取项目 mtime 会显示
+    11-22 02:18（因为我那天凌晨改了它的队列和指令）→ 卡上写「8 小时前」，等于说它动过。
+    """
+    files = info.get("files") or {}
+    cand = [t for n, t in files.items()
+            if n not in QUEUE_ALIASES and not n.startswith("WB指令")]
+    return max(cand) if cand else info.get("mtime", 0)
+
+
+def fill_missing_cards(md, scan_result=None):
+    """★ 有待发、但「当天汇报段」里没有它的项目 → 补一行事实卡，不让它从卡片区消失。
+
+    为什么需要（2026-11-22 实测）：
+      卡片只来自最新一次「## … 汇报」段，而入段条件是「过去 24 小时有产出文件变动」。
+      于是「昨晚派下去、今天还没开工」的项目一张卡都没有 —— 你只能靠记忆找它。
+
+    ★★ 只写能证实的：队列几条待发、最后一次产出是什么时候。
+       建议是一句机械的话（先确认执行方读到指令了），并标明〔系统补报·非判断〕
+       —— 不假扮成判断层写的，不编「现在到哪」。
+
+    返回 (新的 md, 补了几条)
+    """
+    if scan_result is None:
+        scan_result = scan()
+    secs = list(re.finditer(r"^##\s+(.+?汇报)\s*$", md, re.M))
+    if not secs:
+        return md, 0
+    s = secs[-1]
+    tail = md[s.end():]
+    nxt = re.search(r"^##\s", tail, re.M)
+    end_pos = s.end() + (nxt.start() if nxt else len(tail))
+    body = md[s.end():end_pos]
+
+    have = set()
+    for line in body.splitlines():
+        t = line.lstrip()
+        if t.startswith("-") and "｜" in t and "建议" in t:
+            t = t[1:].strip()
+            if "：" in t:
+                have.add(t.split("：")[0].strip())
+
+    now = datetime.datetime.now()
+    add = []
+    for name, info in (scan_result or {}).items():
+        if name in have:
+            continue
+        qf = os.path.join(ROOT, name, "_给WB.md")
+        if not os.path.isfile(qf):
+            continue
+        try:
+            qt = open(qf, encoding="utf-8", errors="ignore").read()
+        except Exception:
+            continue
+        m = re.search(r"^##\s*⏳?\s*待发(.*?)(?=^##\s|\Z)", qt, re.S | re.M)
+        pend = len(re.findall(r"^- \[ \]", m.group(1), re.M)) if m else 0
+        if not pend:
+            continue
+        last = datetime.datetime.fromtimestamp(_out_mtime(info))
+        hrs = (now - last).total_seconds() / 3600.0
+        htxt = ("%d 小时前" % int(hrs)) if hrs < 48 else ("%d 天前" % int(hrs // 24))
+        add.append("- %s：现在 队列挂着 %d 条待发，最后一次产出 %s（%s）"
+                   "｜ 建议 先确认执行方读到指令了；没开工就把第 1 条粘给它　〔系统补报·非判断〕"
+                   % (name, pend, last.strftime("%m-%d %H:%M"), htxt))
+    if not add:
+        return md, 0
+    note = "- （以下是系统补报：有待发、但今天没有产出变动的项目 —— 只陈述事实，不是判断）"
+    ins = "\n" + note + "\n" + "\n".join(add) + "\n"
+    return md[:end_pos].rstrip("\n") + "\n" + ins + md[end_pos:], len(add)
+
+
 def main():
     # ★ 按项目刷新（第一步）：只输出一个项目的证据包，不碰其他项目
     if "--only" in sys.argv:
@@ -880,6 +956,14 @@ def main():
         md = open(LOG, encoding="utf-8").read()
         # 去掉旧的「给WB 待发」段，避免重复累积
         md = _re.sub(r"\n##\s*给WB 待发[\s\S]*?(?=\n##\s|\Z)", "", md).rstrip("\n") + "\n"
+        # ★★★ 2026-11-22：给「有待发但当天无产出」的项目补一张事实卡。
+        #   不然它们既没有卡片（24h 无产出），异常区又不一定报得出来 → 等于消失。
+        try:
+            md, _nfill = fill_missing_cards(md)
+            if _nfill:
+                print("   ★ 补了 %d 张事实卡（有待发、当天无产出）" % _nfill)
+        except Exception as _e:
+            print("   （补事实卡跳过：%s）" % _e)
         todos = collect_todos()
         if todos:
             md = md.rstrip("\n") + "\n\n" + todos
