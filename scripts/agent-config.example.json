@@ -1,18 +1,13 @@
 {
   "_说明": "把本文件复制成 agent-config.json（同目录），改下面的值就能跑起来。以 _ 开头的字段是注释，脚本会忽略。",
-
   "_hermes_home": "Hermes 的数据目录。留空（\"\"）= 自动探测：Windows 找 %LOCALAPPDATA%\\hermes，Mac/Linux 找 ~/.hermes 或 ~/hermes。",
   "hermes_home": "",
-
   "_projects_root": "★ 必填。你的项目根目录 —— 它下面每个子文件夹是一个项目，每个项目里有一个队列文件（如 _给WB.md）。",
   "projects_root": "",
-
   "_focus_projects": "要详细汇报的项目名（子串匹配）。留空 = 全部项目都概览。",
   "focus_projects": [],
-
-  "_memory_dir": "执行方日志目录（相对项目根）。留空 = 自动按顺序找：.agent/memory → .workbuddy/memory → .codex/memory → .claude/memory → memory。★ 对外约定用 .agent/memory；老的 .workbuddy/memory 会一直被兜底。",
+  "_memory_dir": "执行方日志目录（相对项目根）。留空 = 按这个顺序找第一个存在的：.workbuddy/memory → .agent/memory → .codex/memory → .claude/memory → memory；一个都没有时返回 .workbuddy/memory。★ 约定是 .workbuddy/memory（历史沿用，换执行方不用改）；★ 代码【不识别是哪个执行方】—— 它只按顺序找目录。想让 Codex 写 .codex/memory，就在指令里写明那个路径（或在这里配 memory_dir）。",
   "memory_dir": "",
-
   "_judge": "★ 判断层（judge_lite.py）用的大模型。不填就用下面注释里的默认值（DeepSeek）。任何 OpenAI 兼容的 /chat/completions 接口都能用。",
   "_judge_api_url": "接口地址。默认 https://api.deepseek.com/chat/completions",
   "judge_api_url": "",
@@ -24,15 +19,12 @@
   "judge_api_key": "",
   "_env_file": "自定义 .env 文件路径（可选）。不填会依次找：%LOCALAPPDATA%/hermes/.env → scripts/.env → ~/.env",
   "env_file": "",
-
   "_queue_warn_h": "队列挂了超过这么多小时没动静，就进看板顶部异常区「派了没动」（默认 12）。★ 你的节奏是当天要有回音，就调小，比如 6。调小不会噪音泛滥 —— 只有「还有待发」的项目才会被判。",
   "queue_warn_h": 12,
   "_queue_bad_h": "队列挂超过这么多小时算「挂太久」，报天数而不是小时（默认 72）。",
   "queue_bad_h": 72,
-
   "_client_projects": "客户项目名（子串匹配），会单独标成「客户项目」。没有就留空。",
   "client_projects": [],
-
   "_paused_projects": "已收尾的项目：{\"项目名子串\": \"一句状态说明\"}。收尾项目不进停滞统计。",
   "paused_projects": {}
 }
