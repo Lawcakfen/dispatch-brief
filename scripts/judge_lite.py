@@ -14,6 +14,13 @@
     python judge_lite.py              # 判断所有"有变动"的项目
     python judge_lite.py --dry        # 只列出要判哪些，不调 API
 """
+import sys as _sys
+for _s in (_sys.stdout, _sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import datetime
 import json
 import os
@@ -28,7 +35,7 @@ PW = os.path.join(SCRIPTS, "project_watch.py")
 # ★ 状态字段的合法取值 —— 和 project_watch.STAGES 保持一致。
 #   为什么在这里再写一份：judge_lite 故意不 import project_watch（它要能独立跑，
 #   而且 project_watch 是可开源的）。两份不一致会静默错，所以加了个自检（见下）。
-STAGES_OK = ("未开始", "开发中", "待验收", "已完成", "暂停")
+STAGES_OK = ("未开始", "开发中", "待验收", "已完成", "暂停", "已关闭")
 sys.path.insert(0, SCRIPTS)
 import paths  # noqa: E402
 

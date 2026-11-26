@@ -13,6 +13,15 @@
   agent 负责【判断】：这个项目现在到哪了、下一步该做什么
   → 分离的好处：事实不会被 AI 编，判断不会被 diff 限制
 """
+import sys as _sys
+# ★ 2026-11-26：控制台是 GBK（本地服务/cmd 调用）时，print 里的 ✅ 会 UnicodeEncodeError 把脚本打死，
+#   刷新按钮就报「刷新失败」。统一把输出编码改成 utf-8，坏字符降级不致命。
+for _s in (_sys.stdout, _sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 import re
@@ -35,7 +44,7 @@ JUDGE_TIMES = os.path.join(ROOT, "_看板", "judge_times.json")
 #   这里是【当前快照】(每次覆盖)。两者用途不同，合在一起会互相破坏。
 #   字段固定：stage / next / blocker / criterion / note
 PSTATE = os.path.join(ROOT, "_看板", "pstate.json")
-STAGES = ("未开始", "开发中", "待验收", "已完成", "暂停")
+STAGES = ("未开始", "开发中", "待验收", "已完成", "暂停", "已关闭")
 
 
 def load_pstate():
@@ -106,7 +115,7 @@ PROGRESS_KEYS = ("版本记录", "进度", "readme", "工作记录", "进展", "
 # 忽略的目录名：构建产物 / 缓存 / 第三方依赖
 # ★ 按需增删。如果你发现某个项目「文件总数」大得离谱，
 #   大概率是它里面有个克隆下来的工程或构建目录 —— 把目录名加到这里。
-IGNORE_DIRS = {"dist", "build", ".cache", "vendor", ".next", ".nuxt", "coverage"}
+IGNORE_DIRS = {"dist", "build", ".cache", "vendor", ".next", ".nuxt", "coverage", "tmp", "temp"}
 SKIP_DIRS = {".agent", ".workbuddy", ".codex", ".claude",
              "node_modules", ".git", "Temp", "__pycache__"} | IGNORE_DIRS
 # ★ 预览/截图缓存目录（2026-11-20 加）
@@ -311,7 +320,8 @@ def scan():
         return out
     for d in sorted(os.listdir(ROOT)):
         p = os.path.join(ROOT, d)
-        if not os.path.isdir(p) or d.startswith("_"):
+        # ★ 2026-11-26：tmp/temp 不是项目（实测 Outputs/projects/tmp 被当成一张卡片）
+        if not os.path.isdir(p) or d.startswith("_") or d.lower() in {"tmp", "temp"}:
             continue
         files, prog = {}, {}
         for dp, dirs, fs in os.walk(p):
@@ -548,6 +558,24 @@ def set_one(name, now_txt, advice_txt):
             end = j
             break
 
+    # ★ 2026-11-25 修：段头日期不是今天 → 不再往旧段里塞，改在文件末开当天新段。
+    #   病根：本函数只会往「最后一个 ## … 汇报」里写，全库没有别处负责开当天段头，
+    #   于是 11-23 起三天的判断全堆在「## 11-22 汇报」名下，看板上永远显示 11-22。
+    import datetime as _dt
+    _today = _dt.date.today()
+    _m = re.search(r"(\d{1,2})-(\d{1,2})", lines[idx])
+    _sec_date = None
+    if _m:
+        try:
+            _sec_date = _dt.date(_today.year, int(_m.group(1)), int(_m.group(2)))
+        except ValueError:
+            _sec_date = None
+    if _sec_date != _today:
+        while lines and not lines[-1].strip():
+            lines.pop()
+        lines += ["", "## %s 汇报" % _today.strftime("%m-%d")]
+        idx, end = len(lines) - 1, len(lines)
+
     # 段内找该项目那一行（「- 名字：现在 … ｜ 建议 …」）
     hit = None
     for j in range(idx + 1, end):
@@ -582,7 +610,8 @@ def collect_todos():
         return ""
     for d in sorted(os.listdir(ROOT)):
         p = os.path.join(ROOT, d)
-        if not os.path.isdir(p) or d.startswith("_"):
+        # ★ 2026-11-26：tmp/temp 不是项目（实测 Outputs/projects/tmp 被当成一张卡片）
+        if not os.path.isdir(p) or d.startswith("_") or d.lower() in {"tmp", "temp"}:
             continue
         f = os.path.join(p, "_给WB.md")
         if not os.path.isfile(f):
@@ -853,19 +882,30 @@ def fill_missing_cards(md, scan_result=None):
     for name, info in (scan_result or {}).items():
         if name in have:
             continue
+        pend = 0
         qf = os.path.join(ROOT, name, "_给WB.md")
-        if not os.path.isfile(qf):
-            continue
-        try:
-            qt = open(qf, encoding="utf-8", errors="ignore").read()
-        except Exception:
-            continue
-        m = re.search(r"^##\s*⏳?\s*待发(.*?)(?=^##\s|\Z)", qt, re.S | re.M)
-        pend = len(re.findall(r"^- \[ \]", m.group(1), re.M)) if m else 0
-        if not pend:
-            continue
+        if os.path.isfile(qf):
+            try:
+                qt = open(qf, encoding="utf-8", errors="ignore").read()
+                m = re.search(r"^##\s*⏳?\s*待发(.*?)(?=^##\s|\Z)", qt, re.S | re.M)
+                pend = len(re.findall(r"^- \[ \]", m.group(1), re.M)) if m else 0
+            except Exception:
+                pend = 0
         last = datetime.datetime.fromtimestamp(_out_mtime(info))
         hrs = (now - last).total_seconds() / 3600.0
+        if not pend:
+            # ★ 2026-11-23：没有待发、但近 48 小时有真产出 → 也补卡
+            #   （否则"在动的项目"只出现在实时变动里，卡片区看不到它）
+            if hrs > 48:
+                continue
+            st = (load_pstate().get(name) or {}).get("stage")
+            if st == "已关闭":
+                continue
+            htxt = ("%d 小时前" % int(hrs)) if hrs < 48 else ("%d 天前" % int(hrs // 24))
+            add.append("- %s：现在 近 48 小时有产出，最后一次 %s（%s）"
+                       "｜ 建议 给它补一条目标/下一步（点刷新写 pstate），别让它只有产出没有方向　〔系统补报·非判断〕"
+                       % (name, last.strftime("%m-%d %H:%M"), htxt))
+            continue
         htxt = ("%d 小时前" % int(hrs)) if hrs < 48 else ("%d 天前" % int(hrs // 24))
         add.append("- %s：现在 队列挂着 %d 条待发，最后一次产出 %s（%s）"
                    "｜ 建议 先确认执行方读到指令了；没开工就把第 1 条粘给它　〔系统补报·非判断〕"
@@ -1126,7 +1166,7 @@ def main():
             for _k, _v in list(_ps.items()):
                 _at = (_v or {}).get("at", "")
                 try:
-                    _dt2 = datetime.datetime.strptime(_at, "%m-%d %H:%M").replace(year=_now3.year)
+                    _dt2 = datetime.datetime.strptime("%d-%s" % (_now3.year, _at), "%Y-%m-%d %H:%M")
                     if _dt2 > _now3:
                         _dt2 = _dt2.replace(year=_now3.year - 1)
                     _v["stale_h"] = int((_now3 - _dt2).total_seconds() // 3600)
